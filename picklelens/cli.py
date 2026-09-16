@@ -34,6 +34,25 @@ def _c(key: str, use_color: bool) -> str:
     return _COLORS[key] if use_color else ""
 
 
+# Prefer block glyphs, but fall back to ASCII on terminals that cannot encode
+# them (e.g. legacy Windows code pages), so output never raises.
+_FILL, _EMPTY, _BULLET = ("█", "░", "•")
+try:
+    enc = (sys.stdout.encoding or "utf-8")
+    "".join((_FILL, _EMPTY, _BULLET)).encode(enc)
+except Exception:
+    _FILL, _EMPTY, _BULLET = ("#", "-", "*")
+
+
+def _risk_bar(risk: int, use_color: bool) -> str:
+    filled = round(risk / 10)
+    bar = _FILL * filled + _EMPTY * (10 - filled)
+    if not use_color:
+        return bar
+    color = "\033[31m" if risk >= 70 else "\033[33m" if risk >= 40 else "\033[32m"
+    return f"{color}{bar}\033[0m"
+
+
 def _iter_targets(paths: list[str], recursive: bool):
     for raw in paths:
         p = Path(raw)
@@ -69,6 +88,25 @@ def _print_human(res: ScanResult, use_color: bool, min_sev: Severity) -> None:
         print(f"            {_c('dim', use_color)}+{hidden} finding(s) below "
               f"threshold{_c('reset', use_color)}")
 
+    behaviors = res.behaviors
+    if behaviors:
+        prof = res.profile or "malicious behavior"
+        bar = _risk_bar(res.risk, use_color)
+        print(f"     {_c('bold', use_color)}risk {res.risk}/100{_c('reset', use_color)}"
+              f"  {bar}  {_c(res.verdict, use_color)}{prof}{_c('reset', use_color)}")
+        for b in behaviors:
+            print(f"       {_BULLET} {_c('bold', use_color)}{b.title}{_c('reset', use_color)}"
+                  f"  {_c('dim', use_color)}[ATT&CK {b.attck}]{_c('reset', use_color)}")
+            ev = ", ".join(b.evidence[:4])
+            if ev:
+                print(f"         {_c('dim', use_color)}{ev[:100]}{_c('reset', use_color)}")
+
+    iocs = res.iocs
+    if not iocs.is_empty():
+        print(f"     {_c('bold', use_color)}indicators{_c('reset', use_color)}")
+        for label, vals in iocs.to_dict().items():
+            print(f"       {label:16} {', '.join(str(v)[:60] for v in vals[:6])}")
+
 
 def cmd_scan(args: argparse.Namespace) -> int:
     use_color = sys.stdout.isatty() and not args.no_color
@@ -76,9 +114,16 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     results = [scan_file(t) for t in _iter_targets(args.path, args.recursive)]
 
+    if args.report:
+        from . import report
+        html_out = report.render(results)
+        with open(args.report, "w", encoding="utf-8") as fh:
+            fh.write(html_out)
+        print(f"wrote HTML report: {args.report} ({len(results)} file(s))")
+
     if args.json:
         print(json.dumps([r.to_dict() for r in results], indent=2))
-    else:
+    elif not args.report:
         if not results:
             print("no model files found")
         for r in results:
@@ -108,6 +153,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("-r", "--recursive", action="store_true",
                       help="descend into subdirectories")
     scan.add_argument("--json", action="store_true", help="emit JSON")
+    scan.add_argument("--report", metavar="FILE.html",
+                      help="write a self-contained HTML report to FILE")
     scan.add_argument("--min", default="low",
                       choices=["info", "low", "medium", "high", "critical"],
                       help="hide findings below this severity in text output")
@@ -120,6 +167,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Best-effort UTF-8 console so rich output renders on any platform.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    except Exception:
+        pass
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)

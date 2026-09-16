@@ -88,6 +88,9 @@ class Trace:
     error: str | None = None
     # Opcodes that imply a resolution step we cannot follow statically.
     opaque: list[tuple[str, int]] = field(default_factory=list)
+    # Every string/bytes literal in the stream, for IOC extraction. These are
+    # the actual constant operands a payload carries: URLs, commands, paths.
+    literals: list[tuple[str, int]] = field(default_factory=list)
 
     @property
     def invoked_qualnames(self) -> set[str]:
@@ -171,6 +174,15 @@ class Machine:
                     "SHORT_BINBYTES", "BINBYTES8", "BYTEARRAY8",
                 ):
                     stack.append(Const(arg))
+                    if isinstance(arg, str):
+                        trace.literals.append((arg, pos))
+                    elif isinstance(arg, (bytes, bytearray)):
+                        # Bytes literals frequently wrap a stringy payload.
+                        try:
+                            trace.literals.append((bytes(arg).decode("utf-8",
+                                                    "replace"), pos))
+                        except Exception:
+                            pass
                 elif name == "NONE":
                     stack.append(Const(None))
                 elif name == "NEWTRUE":

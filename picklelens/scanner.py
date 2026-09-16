@@ -12,10 +12,15 @@ import json
 import zipfile
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .machine import Machine, Trace
 from .rules import Severity, classify, downgrade, normalize
 from .symbolic import Const, Global, Sym
+
+if TYPE_CHECKING:
+    from .behavior import Behavior
+    from .ioc import IOCs
 
 # Guards against decompression bombs in ZIP-based model containers.
 MAX_MEMBER_BYTES = 512 * 1024 * 1024
@@ -51,6 +56,7 @@ class StreamResult:
     error: str | None = None
     truncated: bool = False
     opaque: list[tuple[str, int]] = field(default_factory=list)
+    literals: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -73,6 +79,35 @@ class ScanResult:
         return max((x.severity for x in f), default=Severity.INFO)
 
     @property
+    def literals(self) -> list[str]:
+        out: list[str] = []
+        for s in self.streams:
+            out.extend(s.literals)
+        return out
+
+    @property
+    def iocs(self) -> "IOCs":
+        from .ioc import extract
+        return extract(self.literals)
+
+    @property
+    def behaviors(self) -> "list[Behavior]":
+        from .behavior import classify
+        cats = {f.category for f in self.findings if f.reachable}
+        quals = {f.qualname for f in self.findings if f.reachable}
+        return classify(cats, quals, self.iocs)
+
+    @property
+    def profile(self) -> "str | None":
+        from .behavior import profile
+        return profile(self.behaviors)
+
+    @property
+    def risk(self) -> int:
+        from .behavior import risk_score
+        return risk_score(self.behaviors, self.severity)
+
+    @property
     def verdict(self) -> str:
         if self.error:
             return "error"
@@ -91,6 +126,10 @@ class ScanResult:
             "format": self.format,
             "verdict": self.verdict,
             "severity": self.severity.label,
+            "risk": self.risk,
+            "profile": self.profile,
+            "behaviors": [b.to_dict() for b in self.behaviors],
+            "iocs": self.iocs.to_dict(),
             "error": self.error,
             "streams": [
                 {
@@ -136,6 +175,7 @@ def analyze_stream(data: bytes, name: str, machine: Machine | None = None) -> St
         error=trace.error,
         truncated=trace.truncated,
         opaque=trace.opaque,
+        literals=[s for s, _ in trace.literals],
     )
 
     invoked: set[str] = set()

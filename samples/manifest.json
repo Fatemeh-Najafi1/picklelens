@@ -98,6 +98,41 @@
     "bytes": 43
   },
   {
+    "name": "mal_dropper.pkl",
+    "malicious": true,
+    "family": "dropper",
+    "in_scope": true,
+    "bytes": 77
+  },
+  {
+    "name": "mal_revshell.pkl",
+    "malicious": true,
+    "family": "c2",
+    "in_scope": true,
+    "bytes": 83
+  },
+  {
+    "name": "mal_infostealer.pkl",
+    "malicious": true,
+    "family": "infostealer",
+    "in_scope": true,
+    "bytes": 209
+  },
+  {
+    "name": "mal_ransomware.pkl",
+    "malicious": true,
+    "family": "ransomware",
+    "in_scope": true,
+    "bytes": 168
+  },
+  {
+    "name": "mal_persistence.pkl",
+    "malicious": true,
+    "family": "persistence",
+    "in_scope": true,
+    "bytes": 83
+  },
+  {
     "name": "benign_dict.pkl",
     "malicious": false,
     "family": "benign",

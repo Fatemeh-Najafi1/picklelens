@@ -15,6 +15,21 @@ actually invokes** — without ever importing, calling, or deserializing
 anything. It answers *"does this program call `os.system`?"* rather than
 *"does the text `os.system` appear somewhere?"*
 
+It then goes a step further than a yes/no verdict: from the reachable calls and
+the literal strings in the file, it classifies **what kind of malware the
+behavior amounts to** — ransomware, infostealer/spyware, reverse shell / C2,
+downloader/dropper, persistence — tags each with its **MITRE ATT&CK**
+technique, extracts **indicators of compromise** (URLs, IPs, domains, shell
+commands, ransom notes, wallet addresses) straight out of the payload, and
+assigns a **0–100 risk score**. Output is a colorized terminal report, JSON, or
+a self-contained **HTML report**.
+
+> **Scope, stated honestly:** this analyzes *pickle-based model files*. It is
+> not a general antivirus for arbitrary executables — it does not do PE/ELF
+> binary analysis, signature databases, or sandboxing. Its "malware type"
+> labels describe the *behavior reachable in the pickle*, not a signature match
+> against a known family.
+
 ## Why not just use picklescan?
 
 [picklescan](https://github.com/mmaitre314/picklescan) is the scanner Hugging
@@ -49,8 +64,8 @@ picklelens instead builds the call graph. That yields:
 On the bundled labelled corpus, gating on each tool's **blocking** verdict:
 
 ```
-picklelens   blocks 13/13 malicious (recall 100%), 0 false alarms
-picklescan   blocks 11/13 malicious (recall  85%), 0 false alarms
+picklelens   blocks 18/18 malicious (recall 100%), 0 false alarms
+picklescan   blocks 16/18 malicious (recall  89%), 0 false alarms
 ```
 
 The two picklescan lets through — a marshal-based code-object loader, and an
@@ -65,6 +80,20 @@ critical/high because it sees the reachable call.
 python -m picklelens scan model.pt
 python -m picklelens scan ./models --recursive --min medium
 python -m picklelens scan model.bin --json
+python -m picklelens scan ./models -r --report report.html   # shareable HTML
+```
+
+Example (a ransomware-behavior sample):
+
+```
+ MALICIOUS  samples/mal_ransomware.pkl  (pickle)
+     critical  calls os.system  [process_execution]  nt.system(...)
+     risk 100/100  ██████████  Ransomware
+       • Arbitrary command / code execution        [ATT&CK T1059]
+       • Ransomware-like / destructive file ops     [ATT&CK T1486, T1485]
+     indicators
+       bitcoin          bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+       ransom_signals   encrypted-file extension, ransom-note language
 ```
 
 Exit code is non-zero when any file reaches the `--fail-on` severity (default
@@ -94,6 +123,13 @@ pickletools.genops        symbolic Machine            rules              scanner
   normalization, and severity grading (invoked > referenced).
 - **`scanner.py`** — unwraps ZIP-based (`.pt`, `.npz`) and object-`.npy`
   containers, sanity-checks safetensors, and produces the per-file verdict.
+- **`ioc.py`** — pulls indicators (URLs, IPs, domains, paths, wallet
+  addresses, shell one-liners, ransom/stealer markers) from the literal
+  strings the payload carries.
+- **`behavior.py`** — maps reachable sinks + indicators to named malware
+  behaviors with MITRE ATT&CK tags, a family profile, and a 0–100 risk score.
+- **`report.py`** — a self-contained, theme-aware HTML report (no external
+  assets).
 
 ## Scope and honest limits
 

