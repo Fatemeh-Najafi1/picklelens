@@ -1,0 +1,17 @@
+[project]
+name = "picklelens"
+version = "0.1.0"
+description = "Reachability scanner for pickle-based ML model files"
+requires-python = ">=3.10"
+authors = [{ name = "motanjf", email = "motanjf@gmail.com" }]
+readme = "README.md"
+
+[project.scripts]
+picklelens = "picklelens.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["picklelens*"]

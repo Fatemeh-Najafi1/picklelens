@@ -1,0 +1,21 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      - run: python tests/make_samples.py
+      - run: python -m pytest tests/ -q
+      - run: python -m tests.benchmark
+      # The scanner gates itself: the inert corpus must trip the CI fail-on.
+      - name: scanner blocks the malicious corpus
+        run: |
+          if python -m picklelens scan samples/mal_direct.pkl --fail-on high --no-color; then
+            echo "expected non-zero exit on malicious sample"; exit 1
+          else
+            echo "correctly flagged"; fi

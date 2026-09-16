@@ -1,0 +1,128 @@
+[
+  {
+    "name": "mal_direct.pkl",
+    "malicious": true,
+    "family": "direct",
+    "in_scope": true,
+    "bytes": 57
+  },
+  {
+    "name": "mal_eval.pkl",
+    "malicious": true,
+    "family": "direct",
+    "in_scope": true,
+    "bytes": 88
+  },
+  {
+    "name": "mal_exec.pkl",
+    "malicious": true,
+    "family": "direct",
+    "in_scope": true,
+    "bytes": 85
+  },
+  {
+    "name": "mal_getattr.pkl",
+    "malicious": true,
+    "family": "getattr",
+    "in_scope": true,
+    "bytes": 88
+  },
+  {
+    "name": "mal_partial.pkl",
+    "malicious": true,
+    "family": "partial",
+    "in_scope": true,
+    "bytes": 95
+  },
+  {
+    "name": "mal_subprocess.pkl",
+    "malicious": true,
+    "family": "direct",
+    "in_scope": true,
+    "bytes": 70
+  },
+  {
+    "name": "mal_nested.pkl",
+    "malicious": true,
+    "family": "nested",
+    "in_scope": true,
+    "bytes": 96
+  },
+  {
+    "name": "mal_build.pkl",
+    "malicious": true,
+    "family": "build",
+    "in_scope": true,
+    "bytes": 72
+  },
+  {
+    "name": "mal_socket.pkl",
+    "malicious": true,
+    "family": "network",
+    "in_scope": true,
+    "bytes": 28
+  },
+  {
+    "name": "oos_classsetstate.pkl",
+    "malicious": true,
+    "family": "class_side",
+    "in_scope": false,
+    "bytes": 85
+  },
+  {
+    "name": "mal_stackglobal.pkl",
+    "malicious": true,
+    "family": "stack_global",
+    "in_scope": true,
+    "bytes": 42
+  },
+  {
+    "name": "mal_alias.pkl",
+    "malicious": true,
+    "family": "alias",
+    "in_scope": true,
+    "bytes": 44
+  },
+  {
+    "name": "mal_unlisted_reflection.pkl",
+    "malicious": true,
+    "family": "unlisted_reflection",
+    "in_scope": true,
+    "bytes": 114
+  },
+  {
+    "name": "mal_marshal.pkl",
+    "malicious": true,
+    "family": "unlisted_marshal",
+    "in_scope": true,
+    "bytes": 43
+  },
+  {
+    "name": "benign_dict.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 86
+  },
+  {
+    "name": "benign_nested.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 254
+  },
+  {
+    "name": "benign_string.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 32
+  },
+  {
+    "name": "benign_numbers.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 2760
+  }
+]

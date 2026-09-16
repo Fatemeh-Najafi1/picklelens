@@ -1,0 +1,4 @@
+cposix
+system
+(S'echo PICKLELENS_CANARY'
+tR.

@@ -1,0 +1,2 @@
+€ŒbuiltinsŒgetattr“ŒbuiltinsŒ
+__import__“Œos…RŒsystem†RŒecho PICKLELENS_CANARY…R.
