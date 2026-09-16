@@ -29,9 +29,20 @@ except Exception:  # pragma: no cover
     HAVE_PICKLESCAN = False
 
 
-def picklelens_flags(path: Path) -> bool:
-    res = scan_file(path)
-    return res.verdict in ("malicious", "suspicious")
+def picklelens_verdict(path: Path) -> str:
+    """picklelens's own three-way verdict, mapped to block/soft/clean so the
+    comparison against picklescan is symmetric: only the hard verdict
+    ('malicious' <-> 'dangerous') counts as a block for either tool."""
+    v = scan_file(path).verdict
+    if v == "malicious":
+        return "dangerous"
+    if v == "suspicious":
+        return "suspicious"
+    return "clean"
+
+
+def picklelens_blocks(path: Path) -> bool:
+    return picklelens_verdict(path) == "dangerous"
 
 
 def picklescan_verdict(path: Path) -> str:
@@ -66,7 +77,9 @@ def run() -> dict:
     out_scope = [e for e in manifest if not e["in_scope"]]
 
     # Blocking verdict: what each tool would actually stop in a CI gate.
-    tools = {"picklelens": picklelens_flags}
+    # Symmetric: for BOTH tools, only the hard verdict counts as a block; the
+    # soft 'suspicious' bucket counts as a miss for both.
+    tools = {"picklelens": picklelens_blocks}
     if HAVE_PICKLESCAN:
         tools["picklescan"] = picklescan_blocks
 
@@ -91,8 +104,9 @@ def run() -> dict:
             elif not truth and flagged: s["fp"] += 1; cell = "FALSE+"
             else: s["tn"] += 1; cell = "pass"
             print(f" {cell:>{w}}", end="")
+        print(f"   pl={picklelens_verdict(SAMPLES / e['name']):>10}", end="")
         if HAVE_PICKLESCAN:
-            print(f" {picklescan_verdict(SAMPLES / e['name']):>11}", end="")
+            print(f" ps={picklescan_verdict(SAMPLES / e['name']):>10}", end="")
         print()
 
     print("\nBlocking scores (would a CI gate stop it? in-scope samples only):")
@@ -108,7 +122,7 @@ def run() -> dict:
         gained = ps["fn"] - pl["fn"]
         misses = [e["name"] for e in in_scope
                   if e["malicious"] and not picklescan_blocks(SAMPLES / e["name"])
-                  and picklelens_flags(SAMPLES / e["name"])]
+                  and picklelens_blocks(SAMPLES / e["name"])]
         if gained > 0:
             print(f"\npicklelens blocks {gained} malicious payload(s) that "
                   f"picklescan lets through (marks only 'suspicious', not blocked):")

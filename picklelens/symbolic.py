@@ -43,7 +43,8 @@ class Global(Sym):
         return f"{self.module}.{self.name}"
 
     def describe(self) -> str:
-        return self.qualname
+        # A bare module reference (name == "") is just the module.
+        return self.qualname if self.name else self.module
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,21 @@ class PersistentRef(Sym):
 
     def describe(self) -> str:
         return f"persistent_id({self.ident.describe()})"
+
+
+@dataclass(frozen=True)
+class Namespace(Sym):
+    """The attribute namespace of a module/object, e.g. vars(os) or os.__dict__.
+
+    Indexing it by a literal name is equivalent to attribute access, which is
+    how a payload turns a module reference into a specific callable without
+    ever naming that callable in a global.
+    """
+
+    obj: Sym
+
+    def describe(self) -> str:
+        return f"vars({self.obj.describe()})"
 
 
 @dataclass(frozen=True)

@@ -22,6 +22,7 @@ from .symbolic import (
     Global,
     Mapping,
     Mark,
+    Namespace,
     PersistentRef,
     Seq,
     Sym,
@@ -42,6 +43,19 @@ DYNAMIC_IMPORTERS = {
     "builtins.__import__",
     "__builtin__.__import__",
     "importlib._bootstrap._find_and_load",
+}
+
+# Callables that expose an object's attribute namespace as an indexable mapping.
+NAMESPACE_GETTERS = {
+    "builtins.vars",
+    "__builtin__.vars",
+    "builtins.globals",
+}
+
+# Callables that index a mapping/sequence by key.
+ITEM_GETTERS = {
+    "operator.getitem",
+    "_operator.getitem",
 }
 
 
@@ -111,7 +125,24 @@ class Machine:
             raise StackUnderflow("no MARK on stack")
 
         def record(target: Sym, args: tuple[Sym, ...], via: str, pos: int) -> Sym:
+            """Apply a call symbolically: log what is *invoked*, return the
+            *value* it produces. These differ for reflection plumbing - calling
+            vars(os) invokes `vars` but yields a namespace, and the produced
+            value is what a later getitem needs to see to resolve os.system."""
             resolved = self._resolve_callee(target, args)
+
+            # Plumbing that yields a module reference (dynamic import) or an
+            # attribute namespace (vars/globals): record the helper itself at
+            # its configured severity, but push the produced value so the chain
+            # keeps resolving downstream.
+            if isinstance(resolved, (Namespace,)) or (
+                isinstance(resolved, Global) and resolved.name == ""
+                and resolve(target) is not resolved
+            ):
+                helper = resolve(target)
+                trace.invocations.append(Invocation(helper, args, via, pos))
+                return resolved
+
             trace.invocations.append(Invocation(resolved, args, via, pos))
             return Call(resolved, args, via)
 
@@ -314,4 +345,14 @@ class Machine:
                 mod = args[0]
                 if isinstance(mod, Const) and isinstance(mod.value, str):
                     return Global(mod.value, "", dynamic=True)
+            # vars(os) / globals() -> the indexable namespace of that object.
+            if qual in NAMESPACE_GETTERS and args:
+                return Namespace(resolve(args[0]))
+            # operator.getitem(vars(os), "system") -> os.system. This is the
+            # reflection route that names neither os nor system as a global.
+            if qual in ITEM_GETTERS and len(args) >= 2:
+                container, key = resolve(args[0]), args[1]
+                if isinstance(container, Namespace) and isinstance(key, Const) \
+                        and isinstance(key.value, str):
+                    return resolve(Attr(container.obj, key.value))
         return t

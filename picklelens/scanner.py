@@ -110,6 +110,12 @@ def _render(sym: Sym, args: tuple[Sym, ...] | None) -> str:
     base = sym.describe()
     if args is None:
         return base
+    # When the callable was recovered through a reflection/alias chain
+    # (getattr, __import__, import_module), the recorded args belong to that
+    # plumbing, not to the resolved target - showing them is misleading. Print
+    # the real callable with an elided argument list instead.
+    if isinstance(sym, Global) and sym.dynamic:
+        return f"{base}(...)"
     rendered = []
     for a in args:
         text = a.describe()
