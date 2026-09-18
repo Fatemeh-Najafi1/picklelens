@@ -1,0 +1,6 @@
+# The scanner engine, installed straight from the GitHub repo so the Space
+# always tracks the source of truth. Rebuilding the Space picks up new commits.
+picklelens @ git+https://github.com/Fatemeh-Najafi1/picklelens.git
+# Optional deeper inspection of these container formats:
+# h5py>=3.0
+# py7zr>=0.20
