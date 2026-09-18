@@ -92,3 +92,32 @@ def test_report_is_self_contained_html():
     assert "stylesheet" not in html
     assert "Ransomware" in html
     assert "bc1qxy" in html
+
+
+# -- new container formats + SARIF ---------------------------------------
+
+def test_keras_lambda_flagged_critical():
+    r = scan_file(SAMPLES / "mal_keras_lambda.keras")
+    assert r.verdict == "malicious"
+    assert any(f.qualname == "keras.Lambda" for f in r.findings)
+
+
+def test_benign_keras_is_clean():
+    r = scan_file(SAMPLES / "benign_keras.keras")
+    assert r.verdict == "clean"
+
+
+def test_sarif_is_valid_2_1_0():
+    from picklelens import sarif
+    results = [scan_file(SAMPLES / n) for n in
+               ("mal_ransomware.pkl", "mal_keras_lambda.keras", "benign_dict.pkl")]
+    import json
+    doc = json.loads(sarif.render(results))
+    assert doc["version"] == "2.1.0"
+    run = doc["runs"][0]
+    assert run["tool"]["driver"]["name"] == "picklelens"
+    # Every result references a declared rule.
+    rule_ids = {r["id"] for r in run["tool"]["driver"]["rules"]}
+    for res in run["results"]:
+        assert res["ruleId"] in rule_ids
+        assert res["message"]["text"]

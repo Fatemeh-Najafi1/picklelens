@@ -98,6 +98,20 @@
     "bytes": 43
   },
   {
+    "name": "mal_keras_lambda.keras",
+    "malicious": true,
+    "family": "keras_lambda",
+    "in_scope": true,
+    "bytes": 502
+  },
+  {
+    "name": "benign_keras.keras",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 262
+  },
+  {
     "name": "mal_dropper.pkl",
     "malicious": true,
     "family": "dropper",

@@ -1,7 +1,8 @@
 # picklelens
 
-A **reachability scanner** for pickle-based machine-learning model files
-(`.pkl`, `.pt`, `.pth`, `.bin`, `.ckpt`, object-array `.npy`/`.npz`).
+A **reachability scanner** for machine-learning model files
+(`.pkl`, `.pt`, `.pth`, `.bin`, `.ckpt`, object-array `.npy`/`.npz`,
+Keras `.keras`/`.h5`, and `.7z` archives).
 
 Most ML model weights ship as Python *pickles*, and a pickle is not data — it
 is a little program for a stack machine that runs the moment you load the
@@ -64,15 +65,15 @@ picklelens instead builds the call graph. That yields:
 On the bundled labelled corpus, gating on each tool's **blocking** verdict:
 
 ```
-picklelens   blocks 18/18 malicious (recall 100%), 0 false alarms
-picklescan   blocks 16/18 malicious (recall  89%), 0 false alarms
+picklelens   blocks 19/19 malicious (recall 100%), 0 false alarms
+picklescan   blocks 16/19 malicious (recall  84%), 0 false alarms
 ```
 
-The two picklescan lets through — a marshal-based code-object loader, and an
+The three picklescan lets through — a marshal-based code-object loader, an
 `os.system` call assembled entirely from globals it does not treat as
-dangerous (`importlib.import_module`, `builtins.vars`, `operator.getitem`) —
-it marks only *suspicious*, i.e. it does not block them. picklelens marks both
-critical/high because it sees the reachable call.
+dangerous (`importlib.import_module`, `builtins.vars`, `operator.getitem`),
+and a Keras Lambda-layer RCE — it either marks only *suspicious* or does not
+inspect the format at all. picklelens sees the reachable call in each.
 
 ## Usage
 
@@ -81,7 +82,13 @@ python -m picklelens scan model.pt
 python -m picklelens scan ./models --recursive --min medium
 python -m picklelens scan model.bin --json
 python -m picklelens scan ./models -r --report report.html   # shareable HTML
+python -m picklelens scan ./models -r --sarif out.sarif       # GitHub code scanning
 ```
+
+Supported inputs: bare pickles; PyTorch `.pt`/`.pth` and `.npz` (ZIP);
+object-array `.npy`; Keras `.keras` (ZIP) and `.h5` (HDF5) — including
+**Lambda-layer** code execution, a vector independent of pickle; `.7z`
+archives (with `py7zr` installed); and `safetensors` (validated as safe).
 
 Example (a ransomware-behavior sample):
 
@@ -151,6 +158,21 @@ patterns real malware uses to reach a sink — but the reachable command is only
 `echo PICKLELENS_CANARY`. Nothing opens a socket, spawns a shell, or touches
 the filesystem, and the scanner never executes any of it. Regenerate with
 `python tests/make_samples.py`.
+
+## Web demo
+
+A small Flask app wraps the same engine: upload a model file, get the analysis
+rendered as a page. It is stateless (no database) and never executes uploads,
+so it runs on a free tier.
+
+```bash
+pip install -r web/requirements.txt
+python -m web.app        # http://127.0.0.1:5000
+```
+
+Deploy to Render with the included `render.yaml` blueprint (free plan,
+`/healthz` health check). Uploads are capped at 25 MB, held only in memory, and
+discarded after analysis.
 
 ## Development
 

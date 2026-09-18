@@ -121,9 +121,15 @@ def cmd_scan(args: argparse.Namespace) -> int:
             fh.write(html_out)
         print(f"wrote HTML report: {args.report} ({len(results)} file(s))")
 
+    if args.sarif:
+        from . import sarif
+        with open(args.sarif, "w", encoding="utf-8") as fh:
+            fh.write(sarif.render(results))
+        print(f"wrote SARIF: {args.sarif} ({len(results)} file(s))")
+
     if args.json:
         print(json.dumps([r.to_dict() for r in results], indent=2))
-    elif not args.report:
+    elif not args.report and not args.sarif:
         if not results:
             print("no model files found")
         for r in results:
@@ -155,6 +161,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--json", action="store_true", help="emit JSON")
     scan.add_argument("--report", metavar="FILE.html",
                       help="write a self-contained HTML report to FILE")
+    scan.add_argument("--sarif", metavar="FILE.sarif",
+                      help="write SARIF 2.1.0 for GitHub code scanning")
     scan.add_argument("--min", default="low",
                       choices=["info", "low", "medium", "high", "critical"],
                       help="hide findings below this severity in text output")

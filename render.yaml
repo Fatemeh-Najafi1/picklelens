@@ -1,0 +1,12 @@
+# Render blueprint: free, stateless web service (no database needed).
+services:
+  - type: web
+    name: picklelens-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r web/requirements.txt
+    startCommand: gunicorn web.app:app
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"

@@ -283,6 +283,45 @@ def _stack_global_payload() -> bytes:
     return body
 
 
+def _keras_lambda_archive() -> bytes:
+    """A .keras (ZIP) whose config.json declares a Lambda layer carrying an
+    embedded serialized function - Keras executes it via func_load on load.
+    The 'function' payload here is inert placeholder text."""
+    import io
+    import json
+    import zipfile
+    config = {
+        "class_name": "Sequential",
+        "config": {"layers": [
+            {"class_name": "Dense", "config": {"units": 8}},
+            {"class_name": "Lambda", "config": {
+                "name": "lambda_backdoor",
+                "function": ["<base64-marshalled-code-object>", None, None],
+                "function_type": "lambda",
+            }},
+        ]},
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("config.json", json.dumps(config))
+        zf.writestr("metadata.json", '{"keras_version": "3.0.0"}')
+    return buf.getvalue()
+
+
+def _keras_benign_archive() -> bytes:
+    import io
+    import json
+    import zipfile
+    config = {"class_name": "Sequential", "config": {"layers": [
+        {"class_name": "Dense", "config": {"units": 8}},
+        {"class_name": "Softmax", "config": {}},
+    ]}}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("config.json", json.dumps(config))
+    return buf.getvalue()
+
+
 BENIGN_STATE = {"weights": [0.1, 0.2, 0.3], "layers": 4, "name": "tiny-net"}
 
 
@@ -326,6 +365,10 @@ def build() -> list[dict]:
     _add("mal_unlisted_reflection.pkl", _unlisted_reflection_payload(),
          True, "unlisted_reflection")
     _add("mal_marshal.pkl", _marshal_payload(), True, "unlisted_marshal")
+
+    # Keras Lambda-layer RCE vector (independent of pickle).
+    _add("mal_keras_lambda.keras", _keras_lambda_archive(), True, "keras_lambda")
+    _add("benign_keras.keras", _keras_benign_archive(), False, "benign")
 
     # Malware-behavior corpus (inert; carry realistic indicator strings).
     _add("mal_dropper.pkl", pickle.dumps(_Dropper()), True, "dropper")

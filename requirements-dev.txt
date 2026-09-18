@@ -1,2 +1,5 @@
 pytest>=8.0
 picklescan>=0.0.20
+# Optional: enable deeper inspection of these container formats.
+# h5py>=3.0      # cleaner Keras .h5 model_config reading (byte-scan fallback works without it)
+# py7zr>=0.20    # inspect .7z model archives
