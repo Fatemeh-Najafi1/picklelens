@@ -210,7 +210,24 @@ python -m agentaudit audit agentaudit/samples/betrayed_injection.json
 ```
 
 It reuses picklelens's IOC extractor, behavior classifier, and MITRE ATT&CK
-tagging. **Honest scope:** it detects the dominant, checkable attack patterns
-(injection→action, sleeper triggers, policy/egress violations) with an evidence
-trail; it is not an oracle for an arbitrarily clever hidden betrayer — that
-remains an open problem.
+tagging, and covers the attack categories the field's benchmarks enumerate:
+exfiltration, direct-harm (financial / destructive / permission with no external
+target), encoded/obfuscated targets, injection-induced harm, sleeper triggers,
+policy/egress violations, and the **cross-session plant→trigger memory
+lifecycle** (`audit_sessions`).
+
+```bash
+python -m agentaudit.benchmark
+```
+```
+Detection recall:     9/9 malicious traces flagged (100%)
+False-positive rate:  0/6 benign traces flagged (0%)   # incl. hard negatives
+```
+
+**Honest scope:** this is built on the information-flow / provenance paradigm the
+research community endorses (FIDES / CaMeL / Agent-Sentry), and the benchmark is
+*our own* labelled corpus, not the field's live-agent benchmarks (InjecAgent /
+AgentDojo). It detects the dominant, checkable attack patterns with an evidence
+trail; it does not claim robustness against an adaptive attacker or full semantic
+taint — open problems for the whole field. The prior work, the design mapping,
+and the residual limits are documented in **[RESEARCH.md](RESEARCH.md)**.
