@@ -237,6 +237,23 @@ restriction — what FIDES/CaMeL do) lifts both to **100%** at the same FPR, whi
 is the real lesson: declaring a policy beats post-hoc taint. See
 **[RESEARCH.md](RESEARCH.md)** and the journey in **[DEVLOG.md](DEVLOG.md)**.
 
+### Testing it against a *real* traitor agent
+
+Every number above is measured on traces we constructed. The end-to-end harness
+closes that gap: it runs an actual agent loop against a tool whose output hides
+an injection, lets the agent decide on its own whether to obey, captures its
+*real* trace, and audits it.
+
+```bash
+python -m agentaudit.harness          # deterministic mock agents (no API key)
+python -m agentaudit.harness --live   # a REAL LLM decides (Anthropic SDK; spends money)
+```
+
+The mock run (in CI) shows both outcomes handled correctly: a gullible agent that
+obeys the injection is flagged `BETRAYING`; a cautious agent that ignores it is
+not. `--live` is the honest test — the model, not us, chooses whether to betray
+the operator, and we check whether agentaudit catches a genuine hijack.
+
 **Honest scope:** this is built on the information-flow / provenance paradigm the
 research community endorses (FIDES / CaMeL / Agent-Sentry). Our adapter reports
 *detection on traces*, not InjecAgent's live-agent attack-success-rate. It detects the dominant, checkable attack patterns with an evidence

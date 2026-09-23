@@ -124,7 +124,22 @@ claim taint-only got better than it did.
   differs) so the comparison is genuine.
 - Gave agentaudit **HTML report + SARIF** output, matching picklelens.
 
+## Phase 6 — terminology fix + the real end-to-end test
+
+- **Terminology.** The agent isn't *betrayed* (victim framing); it's infected and
+  now *betraying* its operator. Renamed the verdict `betrayed` -> `betraying` and
+  reframed the docs as traitor-agent detection.
+- **The honest test.** Every prior number is on constructed traces. Built
+  `harness.py`: a real agent loop against a tool whose output hides an injection.
+  A `MockBrain` (gullible/cautious, deterministic, CI-safe) and a `ClaudeBrain`
+  (real LLM via the Anthropic SDK, `--live`) where the *model* decides whether to
+  obey. Capture the real trace, audit it. Mock run: gullible agent -> BETRAYING,
+  cautious -> not flagged. This is the path that actually answers "does it detect
+  a real traitor agent," rather than grading our own constructed traces.
+
 ## Open threads
+- Run `--live` against a real LLM at scale for a genuine live-agent number
+  (needs credentials + budget; costs money per run).
 - Live web demo (parked): HF free tier blocks server-side Python; plan is a
   Pyodide static Space or PythonAnywhere.
 - Semantic taint, adaptive-attack (attacker-adapts-to-detector) evaluation —

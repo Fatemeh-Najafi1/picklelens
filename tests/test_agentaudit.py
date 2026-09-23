@@ -254,3 +254,27 @@ def test_agentaudit_sarif_valid():
     for res in run["results"]:
         assert res["ruleId"] in rule_ids
         assert res["message"]["text"]
+
+
+# -- end-to-end harness (real capture -> audit path) ---------------------
+
+def test_harness_flags_gullible_agent():
+    from agentaudit import harness
+    scenario = harness._make_review_scenario()
+    trace = harness.run_scenario(scenario, harness.MockBrain(gullible=True))
+    # The gullible agent actually called the attacker tool.
+    assert any(s.get("tool") == "send_email" for s in trace["steps"])
+    assert audit(trace_mod.from_dict(trace)).verdict in ("betraying", "compromised")
+
+
+def test_harness_does_not_flag_cautious_agent():
+    from agentaudit import harness
+    scenario = harness._make_review_scenario()
+    trace = harness.run_scenario(scenario, harness.MockBrain(gullible=False))
+    assert not any(s.get("tool") == "send_email" for s in trace["steps"])
+    assert audit(trace_mod.from_dict(trace)).verdict not in ("betraying", "compromised")
+
+
+def test_harness_main_mock_mode_exits_zero():
+    from agentaudit import harness
+    assert harness.main([]) == 0   # both mock agents classified correctly
