@@ -229,7 +229,10 @@ The InjecAgent number is honest about where the paradigm is strong and weak:
 **94% on data-exfiltration** (there is a tainted destination to trace) but only
 **51% on direct-harm** (many harmful actions carry no attacker value into their
 arguments, so information-flow has nothing to trace — a structural limit, not a
-tuning bug). See **[RESEARCH.md](RESEARCH.md)**.
+tuning bug). Adding a per-task **tool allowlist** (`--policy`, capability
+restriction — what FIDES/CaMeL do) lifts both to **100%** at the same FPR, which
+is the real lesson: declaring a policy beats post-hoc taint. See
+**[RESEARCH.md](RESEARCH.md)** and the journey in **[DEVLOG.md](DEVLOG.md)**.
 
 **Honest scope:** this is built on the information-flow / provenance paradigm the
 research community endorses (FIDES / CaMeL / Agent-Sentry). Our adapter reports

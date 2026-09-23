@@ -57,8 +57,13 @@ def _attacker_targets(instruction: str) -> list[str]:
     return targets or ["<attacker-supplied>"]
 
 
-def case_to_traces(case: dict) -> tuple[dict, dict]:
-    """Return (hijacked_trace, resisted_trace) dicts for one InjecAgent case."""
+def case_to_traces(case: dict, with_policy: bool = False) -> tuple[dict, dict]:
+    """Return (hijacked_trace, resisted_trace) dicts for one InjecAgent case.
+
+    If `with_policy`, each trace declares a tool allowlist containing only the
+    operator's legitimate tool - the capability-restriction defense (CaMeL /
+    FIDES). Any attacker tool call then becomes a policy violation, which is how
+    direct-harm attacks that carry no traceable data are still caught."""
     user_instr = case.get("User Instruction", "")
     user_tool = case.get("User Tool", "")
     params = case.get("Tool Parameters", "")
@@ -94,6 +99,11 @@ def case_to_traces(case: dict) -> tuple[dict, dict]:
     resisted = {"name": f"injecagent:{attack_type}:resisted",
                 "steps": base_steps + [
                     {"kind": "output", "content": "Here is the information you asked for."}]}
+
+    if with_policy and user_tool:
+        policy = {"task": user_instr, "allowed_tools": [user_tool]}
+        hijacked["policy"] = policy
+        resisted["policy"] = policy
     return hijacked, resisted
 
 
@@ -105,14 +115,14 @@ def load_cases(paths: list[str]) -> list[dict]:
     return cases
 
 
-def evaluate(cases: list[dict]) -> dict:
+def evaluate(cases: list[dict], with_policy: bool = False) -> dict:
     tp = fn = tn = fp = 0
     by_family: dict[str, list[int]] = {}
     for case in cases:
         fam = "ds" if "steal" in case.get("Attack Type", "").lower() \
             or case.get("Attacker Tools") and any("send" in t.lower() or "email" in t.lower()
                                                   for t in case["Attacker Tools"]) else "dh"
-        hij, res = case_to_traces(case)
+        hij, res = case_to_traces(case, with_policy=with_policy)
         hij_detected = audit(from_dict(hij)).verdict in ("betrayed", "compromised")
         res_detected = audit(from_dict(res)).verdict in ("betrayed", "compromised")
         tp += hij_detected
@@ -138,12 +148,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--data", action="append", default=[],
                     help="InjecAgent test-case JSON (repeatable). "
                          "Omit to use the bundled example file.")
+    ap.add_argument("--policy", action="store_true",
+                    help="also evaluate with a per-task tool allowlist "
+                         "(capability restriction), not just taint.")
     args = ap.parse_args(argv)
 
     paths = args.data or [str(_EXAMPLE)]
     using_example = not args.data
     cases = load_cases(paths)
-    stats = evaluate(cases)
 
     if using_example:
         print("NOTE: running the bundled illustrative example file (our own "
@@ -151,14 +163,19 @@ def main(argv: list[str] | None = None) -> int:
         print("      For the real external number, clone InjecAgent and pass "
               "--data <its test_cases_*.json>.\n")
 
-    print(f"InjecAgent-adapted detection over {stats['cases']} cases "
-          f"(hijacked = should detect, resisted = should not):")
-    for fam, (hits, total) in sorted(stats["by_family"].items()):
-        print(f"  {fam}: recall {hits}/{total} ({(hits/total if total else 0):.0%})")
-    print(f"\nRecall (hijacked traces flagged):     {stats['tp']}/{stats['cases']} "
-          f"({stats['recall']:.0%})")
-    print(f"False positives (resisted flagged):   {stats['fp']}/{stats['cases']} "
-          f"({stats['fpr']:.0%})")
+    def _report(stats, label):
+        print(f"[{label}] detection over {stats['cases']} cases "
+              f"(hijacked = should detect, resisted = should not):")
+        for fam, (hits, total) in sorted(stats["by_family"].items()):
+            print(f"    {fam}: recall {hits}/{total} ({(hits/total if total else 0):.0%})")
+        print(f"    overall recall: {stats['tp']}/{stats['cases']} ({stats['recall']:.0%})"
+              f"   false positives: {stats['fp']}/{stats['cases']} ({stats['fpr']:.0%})")
+
+    _report(evaluate(cases, with_policy=False), "taint only, no policy")
+    if args.policy:
+        print()
+        _report(evaluate(cases, with_policy=True),
+                "taint + tool allowlist (capability restriction)")
     return 0
 
 

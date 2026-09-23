@@ -127,6 +127,27 @@ enumerating every tool name would overfit to InjecAgent rather than generalise.
 The `RESEARCH.md` number is our own corpus; the InjecAgent number above is the
 external one. Neither includes an adaptive attacker (see limits below).
 
+### The principled fix: capability restriction
+
+Taint is a *best-effort* signal for when nothing else is declared. The robust
+defense — and what FIDES / CaMeL actually do — is **capability restriction**:
+state which tools the agent may use, and refuse the rest. `agentaudit` already
+implements this (`policy.allowed_tools`). Re-running InjecAgent with a per-task
+allowlist of only the operator's legitimate tool (`--policy`):
+
+```
+taint only, no policy:                 ds 94% · dh 51% · overall 73% · FPR 3%
+taint + tool allowlist (capability):   ds 100% · dh 100% · overall 100% · FPR 3%
+```
+
+Direct-harm recall goes 51% → **100%**, because an attacker tool the operator
+never authorised is a policy violation regardless of whether any data flows into
+it. This is not clever detection — it is the correct architectural defense, and
+the honest lesson: **declaring a policy matters more than post-hoc taint.** Taint
+is what you fall back on when you cannot enumerate the allowed tools; an allowlist
+is what you use when you can. (The residual 3% FPR is taint firing on a few
+resisted traces, unrelated to the policy layer.)
+
 ## What we do NOT solve (honest residual limits)
 
 1. **Taint is argument-level, not full semantic data-flow.** We track values and
