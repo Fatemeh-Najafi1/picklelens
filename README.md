@@ -182,3 +182,35 @@ python tests/make_samples.py      # (re)generate the labelled corpus
 python -m pytest tests/ -q        # detection + robustness suite
 python -m tests.benchmark         # head-to-head vs picklescan
 ```
+
+## Related module: `agentaudit` — betrayed-agent detection
+
+The same analysis philosophy, applied one layer up the AI stack. Where
+picklelens asks "will this model file run malicious code," `agentaudit` asks
+"has this AI agent been turned against its operator" — the indirect-prompt-
+injection / memory-poisoning threat where an outsider plants an instruction in
+untrusted content (a retrieved doc, a tool result, a poisoned memory) and the
+agent then acts on it.
+
+It analyses an agent execution trace (JSON) and reports betrayal with an
+**evidence chain**, centered on **provenance/taint**: an action is a betrayal
+when its target — an email, URL, or host — came from *untrusted* input and
+never appeared in the operator's trusted request. That is a fact about where a
+string originated, not a guess about intent, which is what makes it defensible.
+
+```bash
+python -m agentaudit audit agentaudit/samples/betrayed_injection.json
+```
+```
+   BETRAYED  support-agent-betrayed
+     critical  Action sends data to a destination that came from untrusted input  [action@4 src@2]
+       Step 4 calls send_email targeting billing-audit@evil-corp.top, which the
+       agent never received from the operator — it originated in untrusted
+       content at step 2.  ATT&CK T1041
+```
+
+It reuses picklelens's IOC extractor, behavior classifier, and MITRE ATT&CK
+tagging. **Honest scope:** it detects the dominant, checkable attack patterns
+(injection→action, sleeper triggers, policy/egress violations) with an evidence
+trail; it is not an oracle for an arbitrarily clever hidden betrayer — that
+remains an open problem.
