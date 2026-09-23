@@ -74,6 +74,15 @@ _INJECTION_PATTERNS = [
     (re.compile(r"\b(?:when|whenever|if|as soon as|once) .{3,60}?\b(?:then )?"
                 r"(?:you (?:must|should|will)|please|send|forward|delete|run|execute|post|reply|save|remember)\b",
                 re.I), "conditional (sleeper) trigger", ""),
+    # Broad imperative action directive - catches direct-harm instructions
+    # ("unlock the door", "set the thermostat", "book a ride") whose specific
+    # verb isn't in the lists above. Category 'state_change' is the catch-all.
+    (re.compile(r"\b(?:please |kindly |now |immediately )*"
+                r"(?:unlock|lock|open|close|activate|deactivate|enable|set|update|"
+                r"modify|change|create|book|purchase|order|buy|cancel|schedule|"
+                r"reset|revoke|approve|submit|publish|deploy|install|control|adjust|"
+                r"turn on|turn up|turn down)\b", re.I),
+     "imperative action directive", "state_change"),
 ]
 
 # tool-name substring -> harm category. Drives direct-harm coverage.
@@ -93,6 +102,14 @@ _SENSITIVE_TOOLS = [
     ("disable", "defense_evasion"), ("turn_off", "defense_evasion"), ("bypass", "defense_evasion"),
     ("run_shell", "code_execution"), ("exec", "code_execution"), ("shell", "code_execution"),
     ("eval", "code_execution"),
+    # Broad state-changing device / service verbs (direct-harm coverage).
+    ("unlock", "state_change"), ("lock", "state_change"), ("open", "state_change"),
+    ("set", "state_change"), ("update", "state_change"), ("modify", "state_change"),
+    ("control", "state_change"), ("activate", "state_change"), ("book", "state_change"),
+    ("purchase", "state_change"), ("order", "state_change"), ("cancel", "state_change"),
+    ("schedule", "state_change"), ("reset", "state_change"), ("revoke", "state_change"),
+    ("create", "state_change"), ("install", "state_change"), ("deploy", "state_change"),
+    ("approve", "state_change"), ("submit", "state_change"), ("access", "state_change"),
 ]
 
 # tools that write to persistent memory (for the cross-session lifecycle).
@@ -102,7 +119,7 @@ _MEMORY_WRITE_TOOLS = ("memory_save", "save_memory", "memory_save_fact", "rememb
 _ATTCK = {
     "exfiltration": "T1041", "financial": "T1657", "destruction": "T1485",
     "permission": "T1098", "defense_evasion": "T1562", "code_execution": "T1059",
-    "credential_access": "T1552", "messaging": "T1041",
+    "credential_access": "T1552", "messaging": "T1041", "state_change": "T1204",
 }
 
 
@@ -272,7 +289,7 @@ def audit(trace: Trace, _external_taint: dict[str, int] | None = None) -> AuditR
                 continue
             seen_hosts.add(h)
             src = tainted_hosts.get(h)
-            if src is not None:
+            if src is not None and src < act.index:   # action must follow the taint
                 enc = " (decoded from an obfuscated argument)" if t not in atext else ""
                 result.findings.append(Finding(
                     severity=Severity.CRITICAL, kind="provenance",
@@ -286,16 +303,21 @@ def audit(trace: Trace, _external_taint: dict[str, int] | None = None) -> AuditR
                     attck=_ATTCK.get(category, "T1041")))
                 flagged_external = True
 
-        # (1b) direct harm: a tainted non-network token in a sensitive argument
-        if category and not flagged_external:
+        # (1b) direct harm: a tainted token flowing into ANY post-injection
+        # action's arguments. Not gated on our tool taxonomy - an attacker tool
+        # we don't recognise still betrays the operator when it carries a value
+        # the operator never provided. (This is what lifts direct-harm recall.)
+        if not flagged_external:
             for tok in sorted(_significant_tokens(combined), key=len, reverse=True):
                 if tok in trusted_tokens or _host(tok) in trusted_hosts:
                     continue
                 src = tainted.get(tok)
-                if src is not None:
+                if src is not None and src < act.index:
+                    label = category or "state-changing"
                     result.findings.append(Finding(
-                        severity=Severity.CRITICAL, kind="direct_harm",
-                        title=f"Sensitive {category} action uses a value from "
+                        severity=Severity.CRITICAL if category else Severity.HIGH,
+                        kind="direct_harm",
+                        title=f"Sensitive {label} action uses a value from "
                               f"untrusted input",
                         detail=(f"Step {act.index} calls `{act.tool}` with `{tok}`, "
                                 f"which the operator never provided - it came from "
@@ -305,21 +327,28 @@ def audit(trace: Trace, _external_taint: dict[str, int] | None = None) -> AuditR
                         attck=_ATTCK.get(category, "")))
                     break
 
-        # (2) injection-induced harm: injected directive of this category, the
-        # agent performs it, and the operator did not ask for it.
-        if category in injected_categories and not _task_requests(trusted_text, category):
-            src = injected_categories[category]
+        # (2) injection-induced harm / unauthorized action: the agent performs a
+        # sensitive action AFTER untrusted content planted an imperative
+        # directive, and the operator's task never called for an action of that
+        # kind. The directive and the action need not share a category - an
+        # attacker who injects "unlock the door" and triggers a lock-control tool
+        # still betrays the operator. This is the authorization signal that lifts
+        # direct-harm coverage where no attacker value flows into the arguments.
+        if category and injected_categories \
+                and act.index > min(injected_categories.values()) \
+                and not _task_requests(trusted_text, category):
+            src = min(injected_categories.values())
             result.findings.append(Finding(
-                severity=Severity.CRITICAL, kind="direct_harm",
-                title=f"Agent performs a {category} action that was injected, "
-                      f"not requested",
-                detail=(f"Untrusted content at step {src} contains a {category} "
-                        f"directive; step {act.index} (`{act.tool}`) carries it out, "
-                        f"and the operator's task never asked for it."),
+                severity=Severity.HIGH, kind="direct_harm",
+                title=f"Agent performs a {category} action after an injected "
+                      f"directive, unrequested by the operator",
+                detail=(f"Untrusted content at step {src} planted an imperative "
+                        f"directive; step {act.index} (`{act.tool}`) performs a "
+                        f"{category} action the operator's task never asked for."),
                 action_index=act.index, source_index=src,
-                evidence=[f"injected {category} directive @ step {src}",
-                          f"executed by {act.tool} @ step {act.index}"],
-                attck=_ATTCK.get(category, "")))
+                evidence=[f"injected directive @ step {src}",
+                          f"unrequested {category} action by {act.tool} @ step {act.index}"],
+                attck=_ATTCK.get(category, "T1204")))
 
     # -- policy violations --------------------------------------------------
     pol = trace.policy
@@ -418,6 +447,8 @@ _TASK_VERBS = {
     "credential_access": (),
     "code_execution": ("run", "execute"),
     "messaging": ("message", "notify", "email", "send"),
+    "state_change": ("set", "update", "change", "book", "order", "unlock", "open",
+                     "create", "schedule", "cancel", "control", "reset", "install"),
 }
 
 

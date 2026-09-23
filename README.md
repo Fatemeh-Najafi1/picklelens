@@ -217,17 +217,23 @@ policy/egress violations, and the **cross-session plant→trigger memory
 lifecycle** (`audit_sessions`).
 
 ```bash
-python -m agentaudit.benchmark
+python -m agentaudit.benchmark                       # our own labelled corpus
+python -m agentaudit.injecagent --data <InjecAgent/data/test_cases_*.json>
 ```
 ```
-Detection recall:     9/9 malicious traces flagged (100%)
-False-positive rate:  0/6 benign traces flagged (0%)   # incl. hard negatives
+Own corpus (incl. hard negatives):  recall 9/9 (100%), FPR 0/6 (0%)
+Real InjecAgent, 1,054 cases:        ds 94% · dh 51% · overall recall 73%, FPR 3%
 ```
 
+The InjecAgent number is honest about where the paradigm is strong and weak:
+**94% on data-exfiltration** (there is a tainted destination to trace) but only
+**51% on direct-harm** (many harmful actions carry no attacker value into their
+arguments, so information-flow has nothing to trace — a structural limit, not a
+tuning bug). See **[RESEARCH.md](RESEARCH.md)**.
+
 **Honest scope:** this is built on the information-flow / provenance paradigm the
-research community endorses (FIDES / CaMeL / Agent-Sentry), and the benchmark is
-*our own* labelled corpus, not the field's live-agent benchmarks (InjecAgent /
-AgentDojo). It detects the dominant, checkable attack patterns with an evidence
+research community endorses (FIDES / CaMeL / Agent-Sentry). Our adapter reports
+*detection on traces*, not InjecAgent's live-agent attack-success-rate. It detects the dominant, checkable attack patterns with an evidence
 trail; it does not claim robustness against an adaptive attacker or full semantic
 taint — open problems for the whole field. The prior work, the design mapping,
 and the residual limits are documented in **[RESEARCH.md](RESEARCH.md)**.

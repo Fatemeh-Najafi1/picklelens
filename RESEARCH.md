@@ -86,10 +86,46 @@ Precision:            9/9 flagged were malicious (100%)
 
 **This number must be read honestly.** It is *our own* corpus — we grade our own
 homework. It demonstrates the mechanism covers each attack category and, just as
-importantly, does not fire on the hard negatives. It is **not** InjecAgent's
-1,054 external cases, and it does not include an adaptive attacker. A real
-external number requires running against InjecAgent / AgentDojo, which measure
-attack success against *live LLM agents* — a different, larger setup (see below).
+importantly, does not fire on the hard negatives. For an external number we also
+run against the real InjecAgent dataset (below).
+
+## External benchmark: the real InjecAgent corpus
+
+`agentaudit/injecagent.py` adapts InjecAgent's 1,054 base cases into traces and
+measures detection. Because we are a post-hoc auditor, not a live agent, we build
+a **hijacked** trace (the agent obeyed the injection) and a **resisted** trace
+(it ignored it) per case, and report detection recall on hijacked / false-positive
+rate on resisted — *not* InjecAgent's live-agent attack-success-rate. Run it with:
+
+```
+git clone https://github.com/uiuc-kang-lab/InjecAgent
+python -m agentaudit.injecagent --data InjecAgent/data/test_cases_ds_base.json \
+                                --data InjecAgent/data/test_cases_dh_base.json
+```
+
+Result on the full 1,054 cases:
+
+```
+ds (data stealing / exfiltration):  514/544  (94%) recall
+dh (direct harm):                   260/510  (51%) recall
+overall recall:                     774/1054 (73%)
+false-positive rate (resisted):      34/1054 ( 3%)
+```
+
+**The honest finding this exposes.** Provenance / taint detection is **strong for
+data exfiltration (94%)** — when the attack sends data somewhere, there is a
+tainted destination to trace. It is **much weaker for direct harm (51%)**, because
+many direct-harm actions (unlock a door, set a thermostat, transfer to an account
+named only vaguely) carry **no attacker-supplied value into their arguments** —
+there is nothing for an information-flow method to trace. This is a *structural*
+limit of the paradigm, consistent with the literature: taint catches exfiltration;
+direct-harm needs task/authorization reasoning (does this action serve the user's
+request?), which we only approximate with a heuristic "sensitive action after an
+injected directive, unrequested by the operator." Chasing higher dh recall by
+enumerating every tool name would overfit to InjecAgent rather than generalise.
+
+The `RESEARCH.md` number is our own corpus; the InjecAgent number above is the
+external one. Neither includes an adaptive attacker (see limits below).
 
 ## What we do NOT solve (honest residual limits)
 
