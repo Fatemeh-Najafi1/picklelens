@@ -11,7 +11,7 @@ The whole betrayal-detection idea rests on one distinction:
     a retrieved document, a tool's output, a web page, an email body, a recalled
     memory. Any of these can carry an instruction planted by an attacker.
 
-An agent is "betrayed" when it takes an action that serves UNTRUSTED input
+An agent is "betraying" when it takes an action that serves UNTRUSTED input
 rather than the operator - most sharply, when the action's target (an address,
 a URL, a command) originated in untrusted content and never appeared in the
 trusted request. That is a provenance fact, not a guess.

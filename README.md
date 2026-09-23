@@ -183,7 +183,7 @@ python -m pytest tests/ -q        # detection + robustness suite
 python -m tests.benchmark         # head-to-head vs picklescan
 ```
 
-## Related module: `agentaudit` — betrayed-agent detection
+## Related module: `agentaudit` — traitor-agent detection
 
 The same analysis philosophy, applied one layer up the AI stack. Where
 picklelens asks "will this model file run malicious code," `agentaudit` asks
@@ -199,10 +199,10 @@ never appeared in the operator's trusted request. That is a fact about where a
 string originated, not a guess about intent, which is what makes it defensible.
 
 ```bash
-python -m agentaudit audit agentaudit/samples/betrayed_injection.json
+python -m agentaudit audit agentaudit/samples/betraying_injection.json
 ```
 ```
-   BETRAYED  support-agent-betrayed
+   BETRAYING  support-agent-betraying
      critical  Action sends data to a destination that came from untrusted input  [action@4 src@2]
        Step 4 calls send_email targeting billing-audit@evil-corp.top, which the
        agent never received from the operator — it originated in untrusted

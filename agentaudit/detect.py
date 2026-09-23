@@ -157,7 +157,7 @@ class AuditResult:
     @property
     def verdict(self) -> str:
         if any(f.kind in self._BETRAYAL_KINDS for f in self.findings):
-            return "betrayed"
+            return "betraying"
         sev = self.severity
         if sev >= Severity.HIGH:
             return "compromised"

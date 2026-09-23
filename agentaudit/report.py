@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from .detect import AuditResult
 
 _VERDICT_COLOR = {
-    "betrayed": "#e5484d", "compromised": "#e5484d", "suspicious": "#f5a623",
+    "betraying": "#e5484d", "compromised": "#e5484d", "suspicious": "#f5a623",
     "notable": "#3b9eff", "clean": "#30a46c",
 }
 _SEV = {"critical": "#e5484d", "high": "#f5761a", "medium": "#f5a623",
@@ -94,7 +94,7 @@ footer{color:var(--dim);font-size:12px;margin-top:22px;text-align:center}
 
 
 def render(results: list[AuditResult]) -> str:
-    n_bet = sum(1 for r in results if r.verdict in ("betrayed", "compromised"))
+    n_bet = sum(1 for r in results if r.verdict in ("betraying", "compromised"))
     n_sus = sum(1 for r in results if r.verdict == "suspicious")
     n_clean = sum(1 for r in results if r.verdict == "clean")
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")

@@ -1,4 +1,4 @@
-# Betrayed-agent detection: prior work, our design, and honest limits
+# Traitor-agent detection (a compromised agent betraying its operator): prior work, our design, and honest limits
 
 This document backs the `agentaudit` module. It summarizes what the research
 community has done on **compromised / betrayer AI agents**, shows how our design

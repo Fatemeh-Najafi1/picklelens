@@ -42,7 +42,7 @@ build the provable core, name the limits.
 Scope line we held: picklelens is **not** a general antivirus; its malware labels
 describe behavior reachable in the pickle, not a signature match.
 
-## Phase 2 — agentaudit (betrayed-agent detection)
+## Phase 2 — agentaudit (traitor-agent detection)
 
 Reframed the repo as a two-module AI-security toolkit. New question: has an
 insider agent been turned by untrusted input (indirect prompt injection / memory

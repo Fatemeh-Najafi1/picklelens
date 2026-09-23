@@ -14,7 +14,7 @@ from . import trace as trace_mod
 from .detect import audit
 
 _COLORS = {
-    "betrayed": "\033[31m", "compromised": "\033[31m", "suspicious": "\033[33m",
+    "betraying": "\033[31m", "compromised": "\033[31m", "suspicious": "\033[33m",
     "notable": "\033[36m", "clean": "\033[32m", "reset": "\033[0m",
     "dim": "\033[2m", "bold": "\033[1m",
 }

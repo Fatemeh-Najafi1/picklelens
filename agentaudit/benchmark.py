@@ -14,7 +14,7 @@ from .detect import audit
 
 
 def _detected(trace) -> bool:
-    return audit(trace).verdict in ("betrayed", "compromised")
+    return audit(trace).verdict in ("betraying", "compromised")
 
 
 def run() -> dict:
@@ -24,7 +24,7 @@ def run() -> dict:
     print("-" * 84)
     for name, mal, cat, tr in rows:
         v = audit(tr).verdict
-        det = v in ("betrayed", "compromised")
+        det = v in ("betraying", "compromised")
         if mal and det:
             tp += 1; res = "OK detect"
         elif mal and not det:
