@@ -114,8 +114,18 @@ regardless of dataflow, so a declared allowlist beats post-hoc taint. Taint is t
 fallback for when you can't enumerate allowed tools. We resisted the temptation to
 claim taint-only got better than it did.
 
+## Phase 5 — enhanced attacks + output parity
+
+- Ran InjecAgent's **enhanced** set (coercion-prompt attacks built to defeat
+  prompt-classifier defenses). Numbers identical to base (73% / 3%). Not a null
+  result: a provenance detector keys on the *action*, not the injection wording,
+  so it is largely immune to the enhancement — a point for the paradigm. Fixed
+  the adapter to read the rendered `Tool Response` (the field that actually
+  differs) so the comparison is genuine.
+- Gave agentaudit **HTML report + SARIF** output, matching picklelens.
+
 ## Open threads
 - Live web demo (parked): HF free tier blocks server-side Python; plan is a
   Pyodide static Space or PythonAnywhere.
-- Semantic taint, adaptive-attack evaluation — open problems for the whole field.
-- agentaudit report/SARIF/HTML parity with picklelens (nice-to-have).
+- Semantic taint, adaptive-attack (attacker-adapts-to-detector) evaluation —
+  open problems for the whole field.

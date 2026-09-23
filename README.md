@@ -217,8 +217,11 @@ policy/egress violations, and the **cross-session plant→trigger memory
 lifecycle** (`audit_sessions`).
 
 ```bash
-python -m agentaudit.benchmark                       # our own labelled corpus
-python -m agentaudit.injecagent --data <InjecAgent/data/test_cases_*.json>
+python -m agentaudit audit trace.json                # verdict + evidence chains
+python -m agentaudit audit trace.json --report r.html # shareable HTML report
+python -m agentaudit audit trace.json --sarif a.sarif # GitHub code scanning
+python -m agentaudit.benchmark                        # our own labelled corpus
+python -m agentaudit.injecagent --data <InjecAgent/data/test_cases_*.json> --policy
 ```
 ```
 Own corpus (incl. hard negatives):  recall 9/9 (100%), FPR 0/6 (0%)

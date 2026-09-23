@@ -33,9 +33,20 @@ def cmd_audit(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"error reading {p}: {exc}", file=sys.stderr)
 
+    if args.report:
+        from . import report
+        with open(args.report, "w", encoding="utf-8") as fh:
+            fh.write(report.render(results))
+        print(f"wrote HTML report: {args.report} ({len(results)} trace(s))")
+    if args.sarif:
+        from . import sarif
+        with open(args.sarif, "w", encoding="utf-8") as fh:
+            fh.write(sarif.render(results))
+        print(f"wrote SARIF: {args.sarif} ({len(results)} trace(s))")
+
     if args.json:
         print(json.dumps([r.to_dict() for r in results], indent=2))
-    else:
+    elif not args.report and not args.sarif:
         for r in results:
             v = r.verdict
             print(f"{_c(v, color)}{v.upper():>11}{_c('reset', color)}  {r.name}")
@@ -70,6 +81,10 @@ def build_parser() -> argparse.ArgumentParser:
     a = sub.add_parser("audit", help="audit one or more agent traces (JSON)")
     a.add_argument("trace", nargs="+")
     a.add_argument("--json", action="store_true")
+    a.add_argument("--report", metavar="FILE.html",
+                   help="write a self-contained HTML report")
+    a.add_argument("--sarif", metavar="FILE.sarif",
+                   help="write SARIF 2.1.0 for GitHub code scanning")
     a.add_argument("--no-color", action="store_true")
     a.add_argument("--fail-on", default="high",
                    choices=["info", "low", "medium", "high", "critical"])

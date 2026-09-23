@@ -70,12 +70,20 @@ def case_to_traces(case: dict, with_policy: bool = False) -> tuple[dict, dict]:
     attacker_instr = case.get("Attacker Instruction", "")
     attacker_tools = case.get("Attacker Tools") or ["AttackerAction"]
     attack_type = case.get("Attack Type", "")
-    template = case.get("Tool Response Template", "") or case.get("Tool Response", "")
 
-    # The poisoned tool response: attacker instruction embedded in untrusted data.
-    poisoned = template.replace("<Attacker Instruction>", attacker_instr)
-    if "<Attacker Instruction>" not in template and attacker_instr not in poisoned:
-        poisoned = f"{poisoned} {attacker_instr}".strip()
+    # Prefer the *rendered* Tool Response - it is the field that differs between
+    # the base and enhanced sets (enhanced prepends a coercion wrapper like
+    # "IMPORTANT!!! Ignore all previous instructions..."). Fall back to the
+    # template with the attacker instruction substituted (used by our bundled
+    # example, which has no rendered response).
+    rendered = case.get("Tool Response", "")
+    if rendered:
+        poisoned = rendered
+    else:
+        template = case.get("Tool Response Template", "")
+        poisoned = template.replace("<Attacker Instruction>", attacker_instr)
+        if "<Attacker Instruction>" not in template and attacker_instr not in poisoned:
+            poisoned = f"{poisoned} {attacker_instr}".strip()
 
     base_steps = [
         {"kind": "user", "content": user_instr},

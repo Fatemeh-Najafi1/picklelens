@@ -4,6 +4,7 @@ Ground truth is crisp: an action either sends to a destination that came from
 untrusted input (betrayal) or it does not (clean).
 """
 from pathlib import Path
+import json
 
 from agentaudit import trace as trace_mod
 from agentaudit.detect import audit
@@ -228,3 +229,28 @@ def test_capability_restriction_catches_direct_harm():
     hij_p, res_p = injecagent.case_to_traces(case, with_policy=True)
     assert audit(trace_mod.from_dict(hij_p)).verdict in ("betrayed", "compromised")
     assert audit(trace_mod.from_dict(res_p)).verdict not in ("betrayed", "compromised")
+
+
+# -- report + SARIF parity -----------------------------------------------
+
+def test_agentaudit_html_report_self_contained():
+    from agentaudit import report
+    results = [audit(trace_mod.load(SAMPLES / "betrayed_injection.json")),
+               audit(trace_mod.load(SAMPLES / "clean.json"))]
+    html = report.render(results)
+    assert html.startswith("<!doctype html>")
+    assert "<script" not in html and "src=" not in html and "stylesheet" not in html
+    assert "BETRAYED" in html
+
+
+def test_agentaudit_sarif_valid():
+    from agentaudit import sarif
+    results = [audit(trace_mod.load(SAMPLES / "betrayed_injection.json"))]
+    doc = json.loads(sarif.render(results))
+    assert doc["version"] == "2.1.0"
+    run = doc["runs"][0]
+    assert run["tool"]["driver"]["name"] == "agentaudit"
+    rule_ids = {r["id"] for r in run["tool"]["driver"]["rules"]}
+    for res in run["results"]:
+        assert res["ruleId"] in rule_ids
+        assert res["message"]["text"]
