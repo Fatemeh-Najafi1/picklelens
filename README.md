@@ -245,14 +245,25 @@ an injection, lets the agent decide on its own whether to obey, captures its
 *real* trace, and audits it.
 
 ```bash
-python -m agentaudit.harness          # deterministic mock agents (no API key)
-python -m agentaudit.harness --live   # a REAL LLM decides (Anthropic SDK; spends money)
+python -m agentaudit.harness            # deterministic mock agents (no key, CI)
+python -m agentaudit.harness --ollama   # FREE: a local open-weight model (Ollama)
+python -m agentaudit.harness --openai   # FREE tier: Groq / Gemini (OpenAI-compatible)
+python -m agentaudit.harness --live     # Anthropic SDK (spends money)
 ```
 
 The mock run (in CI) shows both outcomes handled correctly: a gullible agent that
 obeys the injection is flagged `BETRAYING`; a cautious agent that ignores it is
-not. `--live` is the honest test — the model, not us, chooses whether to betray
-the operator, and we check whether agentaudit catches a genuine hijack.
+not. The `--ollama`, `--openai`, and `--live` runs are the honest test — a **real
+model**, not us, chooses whether to betray the operator, and we check whether
+agentaudit catches a genuine hijack.
+
+**Free ways to run the real test** (no paid API needed):
+- **Local model** — `ollama pull llama3.2:1b` then `--ollama` (needs ~2 GB disk +
+  a couple GB RAM; a small model is fine, the detector audits whatever trace the
+  agent produces).
+- **Free cloud tier** — a no-card [Groq](https://console.groq.com) key, then
+  `OPENAI_BASE_URL=https://api.groq.com/openai/v1 OPENAI_API_KEY=… OPENAI_MODEL=llama-3.3-70b-versatile python -m agentaudit.harness --openai`.
+  Google Gemini's free tier works the same way via its OpenAI-compatible endpoint.
 
 **Honest scope:** this is built on the information-flow / provenance paradigm the
 research community endorses (FIDES / CaMeL / Agent-Sentry). Our adapter reports
