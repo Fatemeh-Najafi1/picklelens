@@ -67,11 +67,28 @@ def fickling_blocks(path: Path) -> tuple[bool, bool]:
         return False, True
 
 
+def modelhawk_blocks(path: Path) -> tuple[bool, bool]:
+    """ModelHawk (github.com/Pyhroff/ModelHawk) - the closest stdlib sibling.
+    Importable if its modelhawk.py is on sys.path or MODELHAWK_DIR is set."""
+    try:
+        import os
+        import sys
+        d = os.environ.get("MODELHAWK_DIR")
+        if d and d not in sys.path:
+            sys.path.insert(0, d)
+        from modelhawk import scan_file, SEVERITY_ORDER
+        v = scan_file(str(path)).verdict
+        return SEVERITY_ORDER.get(v, 0) >= 3, False  # >= MEDIUM (generous)
+    except Exception:
+        return False, True
+
+
 TOOLS = {
     "picklelens": picklelens_blocks,
     "picklescan": picklescan_blocks,
     "modelscan": modelscan_blocks,
     "fickling": fickling_blocks,
+    "modelhawk": modelhawk_blocks,
 }
 
 
@@ -79,14 +96,24 @@ def run() -> dict:
     manifest = json.loads((SAMPLES / "manifest.json").read_text())
     in_scope = [e for e in manifest if e["in_scope"]]
 
-    stats = {t: dict(tp=0, fn=0, tn=0, fp=0, err=0) for t in TOOLS}
-    names = list(TOOLS)
+    # Drop tools that aren't installed (they error on a known-malicious probe).
+    probe = SAMPLES / "mal_direct.pkl"
+    tools = {}
+    for name, fn in TOOLS.items():
+        blocked, errored = fn(probe)
+        if errored and not blocked:
+            print(f"(skipping {name}: not installed)")
+        else:
+            tools[name] = fn
+
+    stats = {t: dict(tp=0, fn=0, tn=0, fp=0, err=0) for t in tools}
+    names = list(tools)
     print(f"{'sample':30} {'truth':5} " + " ".join(f"{n:>11}" for n in names))
     print("-" * (36 + 12 * len(names)))
     for e in in_scope:
         mal = e["malicious"]
         row = f"{e['name']:30} {'MAL' if mal else 'safe':5} "
-        for name, fn in TOOLS.items():
+        for name, fn in tools.items():
             blocked, errored = fn(SAMPLES / e["name"])
             s = stats[name]
             if errored:

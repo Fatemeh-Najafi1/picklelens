@@ -17,13 +17,33 @@ relates to them. Companion to [RESEARCH.md](RESEARCH.md),
   decompiler + opcode analysis + allowlist loader. The closest *technical* cousin
   (it also reasons about opcodes).
 
-**Near-identical public sibling (honest heads-up):**
-- [ModelHawk](https://github.com/Pyhroff/ModelHawk) — "static scanner that detects
-  code-execution backdoors in PyTorch/pickle ML model files, Python stdlib-only."
-  Essentially picklelens's pitch. picklelens differentiates on reachability
-  *resolution* (reflection/alias chains → the real callable), malware-behavior
-  classification with MITRE ATT&CK, IOC extraction, and a documented benchmark
-  methodology — but the overlap is real and worth tracking.
+**Near-identical public sibling — and the honest comparison:**
+[ModelHawk](https://github.com/Pyhroff/ModelHawk) is "a static scanner that
+detects code-execution backdoors in PyTorch/pickle ML model files, Python
+stdlib-only" — essentially picklelens's pitch, and the *strongest* sibling. On
+our labelled corpus it scores **18/19 (95%), 0 FPR** (run it yourself:
+`MODELHAWK_DIR=/path/to/ModelHawk python -m tests.benchmark_scanners`). So recall
+is **not** the differentiator — honesty first. The real differences:
+
+- **Semantic resolution.** On the reflection chain
+  `operator.getitem(vars(import_module('os')), 'system')`, picklelens resolves the
+  actual sink — `critical: os.system` — and labels the behavior
+  ("Code-execution backdoor"). ModelHawk reports the raw imports
+  (`operator.getitem` MEDIUM, `builtins.vars` MEDIUM, `importlib.import_module`
+  CRITICAL) without reconstructing that `os.system` is being assembled. Both
+  block; picklelens tells you *what it does*.
+- **Behavior / IOC / ATT&CK enrichment.** picklelens classifies the malware
+  family (e.g. Ransomware) and extracts IOCs (wallet addresses, ransom-note text)
+  with MITRE ATT&CK tags; ModelHawk reports opcodes/imports.
+- **Format coverage.** picklelens handles Keras `.keras`/`.h5` Lambda layers, 7z,
+  and validates safetensors; ModelHawk (pickle/npy/yaml-focused) misses the Keras
+  Lambda — its one miss on our corpus.
+- **Precision philosophy.** ModelHawk's high recall partly comes from
+  "unrecognized import → MEDIUM (manual review)", the same alert-fatigue tradeoff
+  as picklescan's *suspicious*; picklelens flags on *reachable* dangerous calls.
+
+Net: a close, well-built sibling; picklelens's edge is semantic understanding,
+enrichment, and format breadth — not a recall gap.
 
 **Evasion research to test ourselves against:**
 - [ShadowPickle](https://arxiv.org/html/2607.17503) — scanner evasion via stealthy
