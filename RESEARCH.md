@@ -204,3 +204,25 @@ open problems the rest of the field is still working on.
 1. Adapter to run against **InjecAgent / AgentDojo** for an external number.
 2. **Semantic taint**: track target reconstruction through paraphrase/format.
 3. Evaluate under **adaptive** (attacker-adapts-to-detector) conditions.
+
+## Where this sits in the multi-agent / "defender becomes betrayer" literature
+
+A later sweep of 2025–2026 work (full annotated list in
+[BIBLIOGRAPHY.md](agentaudit/BIBLIOGRAPHY.md)) adds three points:
+
+- **Determinism is a real advantage against monitor subversion.** The AI-Control
+  line (e.g. *Adaptive Attacks on Trusted Monitors Subvert AI Control Protocols*,
+  ICLR 2026) shows an **LLM-based** monitor can be prompt-injected or made to
+  collude by the very agent it watches — the defender becomes the betrayer.
+  `agentaudit` is deterministic provenance/pattern code: it cannot be
+  prompt-injected, cannot collude, cannot be argued out of a verdict. That
+  immunity is a genuine differentiator (the tradeoff is less semantic flexibility).
+- **The live frontier is multi-agent provenance.** Single-agent taint (ours,
+  AuthGraph) extends to inter-agent message lineage (AGATE, "From Spark to Fire")
+  to catch *prompt-infection* propagation / AI-worm spread. Extending the trace
+  model to inter-agent messages as a trust tier is the highest-value next build.
+- **Two more honest out-of-scope limits**, both the same shape as our direct-harm
+  gap (no tainted value to trace): the **intention-hiding "mole"** (an agent that
+  sabotages while appearing cooperative — *Who's the Mole?*) and
+  **distributed/compositional backdoors** (payload split across agents, no single
+  trace holds it — *When Local Monitors Miss Compositional Harm*).
