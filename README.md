@@ -60,20 +60,37 @@ picklelens instead builds the call graph. That yields:
 - **Precision** — the blocking verdict corresponds to reachable code
   execution, not to a name appearing in a blocklist.
 
-### Benchmark (`python -m tests.benchmark`)
+### Benchmark
 
-On the bundled labelled corpus, gating on each tool's **blocking** verdict:
+On the bundled labelled corpus, gating on each tool's **blocking** verdict.
+Head-to-head vs picklescan (`python -m tests.benchmark`):
 
 ```
 picklelens   blocks 19/19 malicious (recall 100%), 0 false alarms
 picklescan   blocks 16/19 malicious (recall  84%), 0 false alarms
 ```
 
-The three picklescan lets through — a marshal-based code-object loader, an
-`os.system` call assembled entirely from globals it does not treat as
-dangerous (`importlib.import_module`, `builtins.vars`, `operator.getitem`),
-and a Keras Lambda-layer RCE — it either marks only *suspicious* or does not
-inspect the format at all. picklelens sees the reachable call in each.
+Four-way, vs all three public pickle/model scanners
+(`python -m tests.benchmark_scanners`; competitor block thresholds set
+*generously* so the comparison is honest):
+
+```
+picklelens   recall 19/19 (100%), FPR 0/5
+picklescan   recall 16/19 ( 84%), FPR 0/5
+modelscan    recall 14/19 ( 74%), FPR 0/5           # Protect AI
+fickling     recall 16/19 ( 84%), FPR 0/5, 4 parse errors   # Trail of Bits
+```
+
+What the others miss: a marshal-based code-object loader; an `os.system`
+assembled from globals none of them treat as dangerous
+(`importlib.import_module`, `builtins.vars`, `operator.getitem`); and a Keras
+Lambda-layer RCE. Fickling is the strongest competitor — it alone also catches
+the marshal and reflection cases — but it **raised parse errors on 4 valid
+files** (two hand-assembled protocol-4 pickles and the Keras/`.npy`-style
+containers); when it can't parse, it can't block. picklelens resolves the
+reachable call in every case and never errors. (ModelScan and Fickling are
+optional — `pip install modelscan fickling` — and the benchmark skips any that
+aren't installed.)
 
 ## Usage
 

@@ -3,3 +3,7 @@ picklescan>=0.0.20
 # Optional: enable deeper inspection of these container formats.
 # h5py>=3.0      # cleaner Keras .h5 model_config reading (byte-scan fallback works without it)
 # py7zr>=0.20    # inspect .7z model archives
+# Optional: enable the four-way scanner benchmark (tests/benchmark_scanners.py).
+# modelscan pulls TensorFlow, so it is NOT required for the test suite or CI.
+# modelscan>=0.8
+# fickling>=0.1.12
