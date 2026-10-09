@@ -262,17 +262,22 @@ python -m agentaudit.injecagent --data <InjecAgent/data/test_cases_*.json> --pol
 ```
 ```
 Own corpus (incl. hard negatives):  recall 13/13 (100%), FPR 0/9 (0%)
-Real InjecAgent, 1,054 cases:        ds 100% · dh 40% · overall 71% (taint) / 100% (with tool allowlist), FPR 3%
-AgentDojo, 4 suites:                 recall 90% · FPR 0% at 52 pairs, 6% at the full 609-pair cross-product
+Real InjecAgent, 1,054 cases:        ds 100% · dh 40% · overall 70% (taint) / 100% (with tool allowlist), FPR 3%
+AgentDojo, 4 suites (522 pairs):     recall 90% · FPR ~1% (down from 6% after fixing degenerate pairings + a heuristic)
 ```
 
 Two external benchmarks, honest about where the paradigm is strong and weak:
 **100% on data-exfiltration** (there is a tainted destination to trace) but
 weaker on **direct-harm** (many harmful actions carry no attacker value into
 their arguments, so information-flow has nothing to trace — a structural limit,
-not a tuning bug; AgentDojo's *travel* suite is hard for the same reason, and at
-full cross-product scale ~6% of resisted traces are flagged, mostly because a
-legitimate recipient also appears in the untrusted content). Adding a per-task
+not a tuning bug; AgentDojo's *travel* suite is hard for the same reason). The
+full-scale AgentDojo false-positive rate started at 6% and the honest diagnosis
+cut it to ~1%: ~2/3 were degenerate pairings (the attacker's target coincided
+with a recipient the user's own task used), the rest a layer that fired on *any*
+sensitive action after an injection — now required to match the injected
+directive's category. The residual ~1% is the irreducible data-flow-from-query
+limit (implicit authorisation like "follow the instructions in this file").
+Adding a per-task
 **tool allowlist** (`--policy`, capability restriction — what FIDES/CaMeL do)
 lifts InjecAgent to **100%**: declaring a policy beats post-hoc taint, which is
 the deployment recommendation. Full detail and the honest FPR breakdown in

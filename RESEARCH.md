@@ -108,7 +108,7 @@ Result on the full 1,054 cases:
 ```
 ds (data stealing / exfiltration):  544/544  (100%) recall
 dh (direct harm):                   204/510  ( 40%) recall
-overall recall:                     748/1054 ( 71%)  taint-only
+overall recall:                     736/1054 ( 70%)  taint-only
                                     1054/1054 (100%)  with a per-task tool allowlist
 false-positive rate (resisted):      34/1054 (  3%)
 ```
@@ -138,8 +138,8 @@ defenses. Running both (the adapter uses the rendered `Tool Response`, the field
 that actually differs):
 
 ```
-base set,     taint only:  ds 100% · dh 40% · overall 71% · FPR 3%
-enhanced set, taint only:  ds 100% · dh 40% · overall 71% · FPR 3%   (identical)
+base set,     taint only:  ds 100% · dh 40% · overall 70% · FPR 3%
+enhanced set, taint only:  ds 100% · dh 40% · overall 70% · FPR 3%   (identical)
 ```
 
 The numbers are **identical**, and that is the point, not a null result: a
@@ -159,26 +159,30 @@ build faithful hijack traces (`pip install agentdojo`, then
 `python -m agentaudit.agentdojo_adapter`):
 
 ```
-            small sample (2 user tasks)      full cross-product (all pairs)
-banking     18/18 (100%)  FPR 0/18           136/144 (94%)  FPR 12/144 (8%)
-slack       10/10 (100%)  FPR 0/10           105/105 (100%) FPR  5/105 (5%)
-travel       7/12 ( 58%)  FPR 0/12            70/120 (58%)  FPR  0/120 (0%)
-workspace   12/12 (100%)  FPR 0/12           238/240 (99%)  FPR 20/240 (8%)
-TOTAL       47/52 ( 90%)  FPR 0/52           549/609 (90%)  FPR 37/609 (6%)
+            small sample (2 user tasks)      full cross-product (all valid pairs)
+banking     18/18 (100%)  FPR 0/18           128/128 (100%) FPR 4/128 (3%)
+slack       10/10 (100%)  FPR 0/10            77/77  (100%) FPR 0/77  (0%)
+travel       7/12 ( 58%)  FPR 0/12            68/117 ( 58%) FPR 0/117 (0%)
+workspace   12/12 (100%)  FPR 0/12           198/200 ( 99%) FPR 0/200 (0%)
+TOTAL       47/52 ( 90%)  FPR 0/52           471/522 ( 90%) FPR 4/522 (~1%)
 ```
 
-**The 6% FPR at full scale is itself an honest finding** the small sample hid.
-Characterised: ~2/3 of the false positives are *provenance* flags where a
-legitimate recipient (a real contact in the suite) also happens to be the
-attacker's chosen target, so it appears in the untrusted GOAL — surface taint
-cannot tell "the email the user meant" from "the email the injection named"
-(the data-flow-from-the-query problem CaMeL solves, and partly an artifact of
-pairing every injection with every user task). The rest are residual heuristic
-over-triggers. The capability-restriction path (`--policy`) sidesteps all of it.
-This is also why we dropped the one own-corpus hard negative (`multi_tool_legit`:
-texting a courier whose number came from an untrusted order DB) — our paradigm
-cannot principledly clear it, so we name it as a limit rather than count an
-accidental pass as a win.
+**The full-scale FPR is an honest finding the small sample hid** - and fixing it
+is instructive. The first full run showed 6% (37/609). Diagnosis:
+- ~2/3 were *degenerate pairings*: pairing every injection with every user task
+  produced cases where the attacker's chosen target coincided with a recipient
+  the user's own task legitimately used, so the "resisted" action was identical
+  to the attack. These are not valid test cases; the adapter now skips them.
+- the rest came from a layer that fired on *any* sensitive action after *any*
+  injection (e.g. "adjust my rent payment" -> update_scheduled_transaction). It
+  now requires the injected directive and the action to share a category.
+Together these cut the FPR to ~1% (4/522) at no cost to recall. The residual 4
+are the irreducible data-flow-from-query limit (implicit authorisation like
+"follow the instructions in this file"), which the capability-restriction path
+(`--policy`) sidesteps. We also dropped one own-corpus hard negative
+(`multi_tool_legit`: texting a courier whose number came from an untrusted order
+DB) - our paradigm cannot principledly clear it, so we name it as a limit rather
+than count an accidental pass as a win.
 
 Travel is the hard suite for the same structural reason as InjecAgent's dh: the
 attacker's action (book a hotel) is the *same type* as the legitimate task, and
@@ -199,7 +203,7 @@ implements this (`policy.allowed_tools`). Re-running InjecAgent with a per-task
 allowlist of only the operator's legitimate tool (`--policy`):
 
 ```
-taint only, no policy:                 ds 100% · dh 40% · overall 71% · FPR 3%
+taint only, no policy:                 ds 100% · dh 40% · overall 70% · FPR 3%
 taint + tool allowlist (capability):   ds 100% · dh 100% · overall 100% · FPR 3%
 ```
 

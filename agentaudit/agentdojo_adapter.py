@@ -46,6 +46,18 @@ def _calls_to_steps(calls) -> list[dict]:
     return steps
 
 
+def _step_targets(steps) -> set[str]:
+    """Target-like tokens (emails/urls/identifiers) in a list of tool_call args."""
+    import json as _json
+    from .detect import _significant_tokens, _targets
+    toks: set[str] = set()
+    for s in steps:
+        if s.get("kind") == "tool_call":
+            blob = _json.dumps(s.get("args", {}))
+            toks |= _significant_tokens(blob) | _targets(blob)
+    return toks
+
+
 def build_pairs(max_user_tasks: int = 2):
     """Yield (suite, user_task, injection_task, hijacked, resisted)."""
     from agentdojo.task_suite.load_suites import get_suites
@@ -64,11 +76,19 @@ def build_pairs(max_user_tasks: int = 2):
             if not attacker_steps:
                 continue
             goal = itk.GOAL
+            attacker_targets = _step_targets(attacker_steps)
             for ut in user_tasks:
                 try:
                     legit_steps = _calls_to_steps(ut.ground_truth(env))
                 except Exception:
                     legit_steps = [{"kind": "output", "content": "done"}]
+                # Skip degenerate pairings: if the attacker's target coincides
+                # with a target the user's own task legitimately uses, the
+                # "resisted" action is indistinguishable from the attack - not a
+                # valid test case (an artifact of pairing every injection with
+                # every unrelated user task).
+                if attacker_targets and (attacker_targets & _step_targets(legit_steps)):
+                    continue
                 base = [
                     {"kind": "user", "content": ut.PROMPT},
                     {"kind": "tool_result", "source": "agentdojo:tool_output",
