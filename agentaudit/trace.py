@@ -135,10 +135,11 @@ def from_dict(data: dict) -> Trace:
     for i, raw in enumerate(data.get("steps", [])):
         kind = raw.get("kind", "assistant")
         trust = Trust(raw["trust"]) if "trust" in raw else _KIND_TRUST.get(kind, Trust.AGENT)
+        content = raw.get("content", "")
         steps.append(Step(
             index=i,
             kind=kind,
-            content=raw.get("content", ""),
+            content=content if isinstance(content, str) else str(content),
             trust=trust,
             tool=raw.get("tool"),
             args=raw.get("args"),

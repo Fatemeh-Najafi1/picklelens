@@ -100,13 +100,19 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
     except Exception:
         pass
+    import argparse
+    ap = argparse.ArgumentParser(prog="agentaudit.agentdojo_adapter")
+    ap.add_argument("--max-user-tasks", type=int, default=2,
+                    help="user tasks paired with each injection task (bigger = "
+                         "more pairs = more statistically meaningful).")
+    args = ap.parse_args(argv)
     try:
         import agentdojo  # noqa: F401
     except Exception:
         print("agentdojo is not installed. Run: pip install agentdojo")
         return 0
 
-    by_suite = evaluate()
+    by_suite = evaluate(args.max_user_tasks)
     tot = dict(tp=0, fn=0, tn=0, fp=0)
     print(f"{'suite':12} {'recall':>14}   {'FPR':>12}")
     print("-" * 42)

@@ -196,6 +196,7 @@ def _significant_tokens(text: str) -> set[str]:
     i = extract_iocs([text])
     toks |= set(i.bitcoin) | set(i.paths)
     for m in _ID_TOKEN.findall(text):
+        m = m.strip(".,;:!?)(][}{'\"")        # trailing punctuation would hide a match
         # account/id-shaped: contains a digit and is not a plain English word.
         if any(c.isdigit() for c in m) and len(m) >= 6:
             toks.add(m)
@@ -258,10 +259,25 @@ def _host(target: str) -> str:
     return target.lower()
 
 
+_CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def _tool_tokens(tool: str | None) -> set[str]:
+    """Split a tool name into word tokens (snake_case and camelCase aware)."""
+    name = _CAMEL.sub(" ", tool or "")
+    return {w for w in re.split(r"[_\W]+", name.lower()) if w}
+
+
 def _action_category(tool: str | None) -> str:
-    t = (tool or "").lower()
-    for sub, cat in _SENSITIVE_TOOLS:
-        if sub in t:
+    """Category of a tool, matched on whole word tokens - so a *read* like
+    `get_scheduled_transactions` is not mistaken for a state-change via the
+    substring 'schedule' inside 'scheduled'."""
+    toks = _tool_tokens(tool)
+    if not toks:
+        return ""
+    for entry, cat in _SENSITIVE_TOOLS:
+        words = entry.split("_")
+        if all(w in toks for w in words):
             return cat
     return ""
 

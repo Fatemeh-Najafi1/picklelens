@@ -107,14 +107,15 @@ Result on the full 1,054 cases:
 
 ```
 ds (data stealing / exfiltration):  544/544  (100%) recall
-dh (direct harm):                   260/510  ( 51%) recall
-overall recall:                     804/1054 ( 76%)
+dh (direct harm):                   204/510  ( 40%) recall
+overall recall:                     748/1054 ( 71%)  taint-only
+                                    1054/1054 (100%)  with a per-task tool allowlist
 false-positive rate (resisted):      34/1054 (  3%)
 ```
 
 **The honest finding this exposes.** Provenance / taint detection is **strong for
 data exfiltration (100%)** — when the attack sends data somewhere, there is a
-tainted destination to trace. It is **much weaker for direct harm (51%)**, because
+tainted destination to trace. It is **much weaker for direct harm (40%)**, because
 many direct-harm actions (unlock a door, set a thermostat, transfer to an account
 named only vaguely) carry **no attacker-supplied value into their arguments** —
 there is nothing for an information-flow method to trace. This is a *structural*
@@ -137,8 +138,8 @@ defenses. Running both (the adapter uses the rendered `Tool Response`, the field
 that actually differs):
 
 ```
-base set,     taint only:  ds 94% · dh 51% · overall 73% · FPR 3%
-enhanced set, taint only:  ds 94% · dh 51% · overall 73% · FPR 3%   (identical)
+base set,     taint only:  ds 100% · dh 40% · overall 71% · FPR 3%
+enhanced set, taint only:  ds 100% · dh 40% · overall 71% · FPR 3%   (identical)
 ```
 
 The numbers are **identical**, and that is the point, not a null result: a
@@ -158,12 +159,26 @@ build faithful hijack traces (`pip install agentdojo`, then
 `python -m agentaudit.agentdojo_adapter`):
 
 ```
-banking     18/18 (100%)   FPR 0/18
-slack       10/10 (100%)   FPR 0/10
-travel       7/12 ( 58%)   FPR 0/12
-workspace   12/12 (100%)   FPR 0/12
-TOTAL       47/52 ( 90%)   FPR 0/52
+            small sample (2 user tasks)      full cross-product (all pairs)
+banking     18/18 (100%)  FPR 0/18           136/144 (94%)  FPR 12/144 (8%)
+slack       10/10 (100%)  FPR 0/10           105/105 (100%) FPR  5/105 (5%)
+travel       7/12 ( 58%)  FPR 0/12            70/120 (58%)  FPR  0/120 (0%)
+workspace   12/12 (100%)  FPR 0/12           238/240 (99%)  FPR 20/240 (8%)
+TOTAL       47/52 ( 90%)  FPR 0/52           549/609 (90%)  FPR 37/609 (6%)
 ```
+
+**The 6% FPR at full scale is itself an honest finding** the small sample hid.
+Characterised: ~2/3 of the false positives are *provenance* flags where a
+legitimate recipient (a real contact in the suite) also happens to be the
+attacker's chosen target, so it appears in the untrusted GOAL — surface taint
+cannot tell "the email the user meant" from "the email the injection named"
+(the data-flow-from-the-query problem CaMeL solves, and partly an artifact of
+pairing every injection with every user task). The rest are residual heuristic
+over-triggers. The capability-restriction path (`--policy`) sidesteps all of it.
+This is also why we dropped the one own-corpus hard negative (`multi_tool_legit`:
+texting a courier whose number came from an untrusted order DB) — our paradigm
+cannot principledly clear it, so we name it as a limit rather than count an
+accidental pass as a win.
 
 Travel is the hard suite for the same structural reason as InjecAgent's dh: the
 attacker's action (book a hotel) is the *same type* as the legitimate task, and
@@ -184,11 +199,11 @@ implements this (`policy.allowed_tools`). Re-running InjecAgent with a per-task
 allowlist of only the operator's legitimate tool (`--policy`):
 
 ```
-taint only, no policy:                 ds 94% · dh 51% · overall 73% · FPR 3%
+taint only, no policy:                 ds 100% · dh 40% · overall 71% · FPR 3%
 taint + tool allowlist (capability):   ds 100% · dh 100% · overall 100% · FPR 3%
 ```
 
-Direct-harm recall goes 51% → **100%**, because an attacker tool the operator
+Direct-harm recall goes 40% → **100%**, because an attacker tool the operator
 never authorised is a policy violation regardless of whether any data flows into
 it. This is not clever detection — it is the correct architectural defense, and
 the honest lesson: **declaring a policy matters more than post-hoc taint.** Taint

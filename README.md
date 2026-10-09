@@ -1,8 +1,9 @@
 # picklelens — an AI-security toolkit
 
 [![CI](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml/badge.svg)](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-85%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-89%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
+![license](https://img.shields.io/badge/license-MIT-green)
 
 Two modules, one idea — catching things that are *supposed* to be safe but have
 been turned into weapons:
@@ -260,20 +261,22 @@ python -m agentaudit.benchmark                        # our own labelled corpus
 python -m agentaudit.injecagent --data <InjecAgent/data/test_cases_*.json> --policy
 ```
 ```
-Own corpus (incl. hard negatives):  recall 9/9 (100%), FPR 0/6 (0%)
-Real InjecAgent, 1,054 cases:        ds 100% · dh 51% · overall recall 76%, FPR 3%
-AgentDojo, 4 suites (52 pairs):      banking/slack/workspace 100% · travel 58% · overall 90%, FPR 0%
+Own corpus (incl. hard negatives):  recall 13/13 (100%), FPR 0/9 (0%)
+Real InjecAgent, 1,054 cases:        ds 100% · dh 40% · overall 71% (taint) / 100% (with tool allowlist), FPR 3%
+AgentDojo, 4 suites:                 recall 90% · FPR 0% at 52 pairs, 6% at the full 609-pair cross-product
 ```
 
 Two external benchmarks, honest about where the paradigm is strong and weak:
 **100% on data-exfiltration** (there is a tainted destination to trace) but
 weaker on **direct-harm** (many harmful actions carry no attacker value into
 their arguments, so information-flow has nothing to trace — a structural limit,
-not a tuning bug; AgentDojo's *travel* suite is hard for the same reason). Adding
-a per-task **tool allowlist** (`--policy`, capability restriction — what
-FIDES/CaMeL do) lifts InjecAgent to **100%** at the same FPR: declaring a policy
-beats post-hoc taint. See **[RESEARCH.md](RESEARCH.md)** and the journey in
-**[DEVLOG.md](DEVLOG.md)**.
+not a tuning bug; AgentDojo's *travel* suite is hard for the same reason, and at
+full cross-product scale ~6% of resisted traces are flagged, mostly because a
+legitimate recipient also appears in the untrusted content). Adding a per-task
+**tool allowlist** (`--policy`, capability restriction — what FIDES/CaMeL do)
+lifts InjecAgent to **100%**: declaring a policy beats post-hoc taint, which is
+the deployment recommendation. Full detail and the honest FPR breakdown in
+**[RESEARCH.md](RESEARCH.md)**; the journey in **[DEVLOG.md](DEVLOG.md)**.
 
 ### Testing it against a *real* traitor agent
 
