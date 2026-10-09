@@ -262,6 +262,50 @@ def _marshal_payload() -> bytes:
     return a.stop()
 
 
+def _memo_global_payload() -> bytes:
+    """os.system assembled via STACK_GLOBAL whose operands come from the memo
+    (MEMOIZE + BINGET) rather than appearing inline - a memo-indirection evasion.
+    """
+    return (
+        b"\x80\x04"
+        b"\x8c\x02os" b"\x94" b"0"          # "os", MEMOIZE (memo0), POP
+        b"\x8c\x06system" b"\x94" b"0"      # "system", MEMOIZE (memo1), POP
+        b"h\x00" b"h\x01" b"\x93"           # BINGET 0, BINGET 1, STACK_GLOBAL
+        b"\x8c\x0e" + f"echo {CANARY}".encode()
+        + b"\x85R."                          # TUPLE1, REDUCE, STOP
+    )
+
+
+def _multipickle_payload() -> bytes:
+    """A benign pickle followed by a malicious one - the trailing stream carries
+    the payload, which single-stream scanners miss."""
+    return pickle.dumps({"weights": [0.1, 0.2], "name": "tiny"}) + \
+        pickle.dumps(_Direct())
+
+
+def _zlib_staged_payload() -> bytes:
+    """exec() of a decompressed blob - a staged/obfuscated payload."""
+    import zlib
+
+    class _Z:
+        def __reduce__(self):
+            return (exec, (zlib.decompress(
+                zlib.compress(f"print('{CANARY}')".encode())),))
+    return pickle.dumps(_Z())
+
+
+def _benign_ordereddict() -> bytes:
+    from collections import OrderedDict
+    return pickle.dumps(OrderedDict([("layer1.weight", [0.1] * 8),
+                                     ("layer1.bias", [0.0] * 8),
+                                     ("layer2.weight", [0.2] * 4)]))
+
+
+def _benign_memo_heavy() -> bytes:
+    shared = {"cfg": list(range(50))}
+    return pickle.dumps([shared, shared, shared, {"meta": shared}])
+
+
 def _stack_global_payload() -> bytes:
     """Build os.system via STACK_GLOBAL from two stack strings.
 
@@ -377,10 +421,26 @@ def build() -> list[dict]:
     _add("mal_ransomware.pkl", pickle.dumps(_Ransomware()), True, "ransomware")
     _add("mal_persistence.pkl", pickle.dumps(_Persistence()), True, "persistence")
 
+    # Documented-evasion attacks.
+    _add("mal_multipickle.pkl", _multipickle_payload(), True, "evasion_multistream")
+    _add("mal_memo_global.pkl", _memo_global_payload(), True, "evasion_memo")
+    _add("mal_zlib_staged.pkl", _zlib_staged_payload(), True, "evasion_staged")
+
     _add("benign_dict.pkl", _benign_dict(), False, "benign")
     _add("benign_nested.pkl", _benign_nested_list(), False, "benign")
     _add("benign_string.pkl", pickle.dumps("just a model name"), False, "benign")
     _add("benign_numbers.pkl", pickle.dumps(list(range(1000))), False, "benign")
+    # More realistic benign models, to make the false-positive rate meaningful.
+    _add("benign_ordereddict.pkl", _benign_ordereddict(), False, "benign")
+    _add("benign_memo_heavy.pkl", _benign_memo_heavy(), False, "benign")
+    _add("benign_tuple_graph.pkl", pickle.dumps(((1, 2), [3, 4], {"k": (5, 6)})),
+         False, "benign")
+    _add("benign_frozenset.pkl", pickle.dumps({"labels": frozenset({"a", "b", "c"})}),
+         False, "benign")
+    _add("benign_bytes.pkl", pickle.dumps({"blob": b"\x00\x01\x02tensor-bytes"}),
+         False, "benign")
+    _add("benign_floats.pkl", pickle.dumps([[0.1 * i, 0.2 * i] for i in range(200)]),
+         False, "benign")
 
     manifest = []
     for name, data, malicious, family, in_scope in MANIFEST:

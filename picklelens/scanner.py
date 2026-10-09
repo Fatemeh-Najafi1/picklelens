@@ -238,8 +238,48 @@ def _looks_like_pickle(data: bytes) -> bool:
     return data[:1] in (b"\x80", b"(", b"]", b"}", b"c", b"S", b"V", b"I", b"K", b"N")
 
 
+_PICKLE_OPENERS = (b"\x80", b"(", b"]", b"}", b"c", b"S", b"V", b"I", b"K", b"N")
+MAX_STREAMS = 256
+
+
+def _split_streams(data: bytes) -> list[bytes]:
+    """Split a blob into its successive pickle streams.
+
+    A file may hold more than one pickle concatenated end to end; scanning only
+    the first (stopping at the first STOP) lets an attacker hide a payload in a
+    trailing stream - a documented scanner-evasion technique. We walk each
+    stream's opcodes to its STOP and continue from there."""
+    import pickletools
+    streams: list[bytes] = []
+    pos = 0
+    while pos < len(data) and len(streams) < MAX_STREAMS:
+        last_stop = None
+        try:
+            for op, _arg, p in pickletools.genops(data[pos:]):
+                if op.name == "STOP":
+                    last_stop = p
+                    break
+        except Exception:
+            break
+        if last_stop is None:
+            break
+        end = pos + last_stop + 1  # STOP is a single byte
+        streams.append(data[pos:end])
+        pos = end
+        # Skip any bytes before the next plausible pickle opener.
+        while pos < len(data) and data[pos:pos + 1] not in _PICKLE_OPENERS:
+            pos += 1
+    return streams or [data]
+
+
 def scan_bytes(data: bytes, path: str = "<bytes>", label: str = "stream") -> ScanResult:
-    return ScanResult(path=path, format="pickle", streams=[analyze_stream(data, label)])
+    streams = _split_streams(data)
+    if len(streams) <= 1:
+        return ScanResult(path=path, format="pickle",
+                          streams=[analyze_stream(data, label)])
+    results = [analyze_stream(s, f"{label}#{i}") for i, s in enumerate(streams)]
+    return ScanResult(path=path, format=f"pickle ({len(streams)} streams)",
+                      streams=results)
 
 
 _HDF5_MAGIC = b"\x89HDF\r\n\x1a\n"
@@ -264,8 +304,8 @@ def scan_file(path: str | Path) -> ScanResult:
     if raw[:6] == b"\x93NUMPY":
         return _scan_npy(p, raw)
     if _looks_like_pickle(raw):
-        return ScanResult(path=str(p), format="pickle",
-                          streams=[analyze_stream(raw, p.name)])
+        res = scan_bytes(raw, path=str(p), label=p.name)
+        return res
 
     return ScanResult(path=str(p), format="unrecognized",
                       error="not a pickle, model archive, HDF5, or safetensors file")

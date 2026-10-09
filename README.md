@@ -1,7 +1,7 @@
 # picklelens — an AI-security toolkit
 
 [![CI](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml/badge.svg)](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-76%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-85%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
 Two modules, one idea — catching things that are *supposed* to be safe but have
@@ -9,7 +9,7 @@ been turned into weapons:
 
 | Module | Catches | Headline result |
 |---|---|---|
-| **picklelens** | malicious ML model files (pickle / PyTorch / Keras / 7z) | **19/19** malicious samples — tops all four public scanners (picklescan, ModelScan, Fickling, ModelHawk), 0 false alarms |
+| **picklelens** | malicious ML model files (pickle / PyTorch / Keras / 7z) | **22/22** malicious samples (incl. evasions) — tops all four public scanners (picklescan, ModelScan, Fickling, ModelHawk); only tool with 0 false alarms |
 | **agentaudit** | hijacked "traitor" AI agents (prompt injection / memory poisoning) | caught a **real live** agent hijack; benchmarked on InjecAgent (1,054 cases) + AgentDojo (4 suites) |
 
 Honest by design — every benchmark states its losses and limits: the
@@ -83,35 +83,29 @@ picklelens instead builds the call graph. That yields:
 
 ### Benchmark
 
-On the bundled labelled corpus, gating on each tool's **blocking** verdict.
-Head-to-head vs picklescan (`python -m tests.benchmark`):
-
-```
-picklelens   blocks 19/19 malicious (recall 100%), 0 false alarms
-picklescan   blocks 16/19 malicious (recall  84%), 0 false alarms
-```
-
-Four-way, vs all three public pickle/model scanners
+On the bundled labelled corpus (22 malicious incl. documented evasions,
+11 benign incl. realistic models), gating on each tool's **blocking** verdict.
+Five-way, vs every public pickle/model scanner
 (`python -m tests.benchmark_scanners`; competitor block thresholds set
 *generously* so the comparison is honest):
 
 ```
-picklelens   recall 19/19 (100%), FPR 0/5
-picklescan   recall 16/19 ( 84%), FPR 0/5
-modelscan    recall 14/19 ( 74%), FPR 0/5           # Protect AI
-fickling     recall 16/19 ( 84%), FPR 0/5, 4 parse errors   # Trail of Bits
+picklelens   recall 22/22 (100%), FPR 0/11 (0%)
+modelhawk    recall 20/22 ( 91%), FPR 0/11 (0%)    # Pyhroff/ModelHawk
+picklescan   recall 19/22 ( 86%), FPR 0/11 (0%)    # Hugging Face
+fickling     recall 17/22 ( 77%), FPR 1/11 (9%), 5 parse errors   # Trail of Bits
+modelscan    recall 16/22 ( 73%), FPR 0/11 (0%)    # Protect AI
 ```
 
-What the others miss: a marshal-based code-object loader; an `os.system`
-assembled from globals none of them treat as dangerous
-(`importlib.import_module`, `builtins.vars`, `operator.getitem`); and a Keras
-Lambda-layer RCE. Fickling is the strongest competitor — it alone also catches
-the marshal and reflection cases — but it **raised parse errors on 4 valid
-files** (two hand-assembled protocol-4 pickles and the Keras/`.npy`-style
-containers); when it can't parse, it can't block. picklelens resolves the
-reachable call in every case and never errors. (ModelScan and Fickling are
-optional — `pip install modelscan fickling` — and the benchmark skips any that
-aren't installed.)
+picklelens is the **only tool at 100% recall with 0 false alarms.** What the
+others miss includes documented evasions: a **multi-pickle** file whose payload
+is in a trailing stream (defeats ModelHawk and Fickling — they scan only the
+first stream), a **memo-indirected** global (defeats ModelScan, crashes
+Fickling), a marshal loader, an `os.system` assembled from non-blocklisted
+globals, and a Keras Lambda RCE. Fickling also **false-flags a legitimate
+`OrderedDict` state dict** and raised parse errors on 5 valid files. (ModelScan,
+Fickling, ModelHawk are optional — the benchmark skips any not installed;
+ModelHawk via `MODELHAWK_DIR=/path/to/ModelHawk`.)
 
 ## Usage
 

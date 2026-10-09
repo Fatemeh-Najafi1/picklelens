@@ -147,6 +147,27 @@
     "bytes": 83
   },
   {
+    "name": "mal_multipickle.pkl",
+    "malicious": true,
+    "family": "evasion_multistream",
+    "in_scope": true,
+    "bytes": 119
+  },
+  {
+    "name": "mal_memo_global.pkl",
+    "malicious": true,
+    "family": "evasion_memo",
+    "in_scope": true,
+    "bytes": 50
+  },
+  {
+    "name": "mal_zlib_staged.pkl",
+    "malicious": true,
+    "family": "evasion_staged",
+    "in_scope": true,
+    "bytes": 65
+  },
+  {
     "name": "benign_dict.pkl",
     "malicious": false,
     "family": "benign",
@@ -173,5 +194,47 @@
     "family": "benign",
     "in_scope": true,
     "bytes": 2760
+  },
+  {
+    "name": "benign_ordereddict.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 285
+  },
+  {
+    "name": "benign_memo_heavy.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 145
+  },
+  {
+    "name": "benign_tuple_graph.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 41
+  },
+  {
+    "name": "benign_frozenset.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 39
+  },
+  {
+    "name": "benign_bytes.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 40
+  },
+  {
+    "name": "benign_floats.pkl",
+    "malicious": false,
+    "family": "benign",
+    "in_scope": true,
+    "bytes": 4416
   }
 ]
