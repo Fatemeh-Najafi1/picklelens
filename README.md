@@ -1,7 +1,7 @@
 # picklelens — an AI-security toolkit
 
 [![CI](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml/badge.svg)](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-89%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-93%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -173,15 +173,23 @@ pickletools.genops        symbolic Machine            rules              scanner
 
 ## Scope and honest limits
 
-- **Static only.** If a payload's malice lives in *installed class code*
-  reached via `__setstate__` — i.e. the dangerous bytes are not in the pickle
-  stream at all — no stream analyzer can see it. The corpus ships one such
-  sample (`oos_classsetstate.pkl`), labelled out-of-scope, so the benchmark
-  states the limit instead of hiding it.
-- **safetensors** carries no code-execution primitive; picklelens only
-  validates its header and reports it as the safe format it is.
-- Values that resolve through `PERSID`/extension registries are marked opaque
-  rather than guessed.
+- **Static only — but the blind spots are now flagged, not cleared.** If a
+  payload's malice lives in *installed class code* reached via `__setstate__`,
+  the dangerous bytes are not in the pickle stream, so no stream analyzer can see
+  the code itself. picklelens now flags the **risk signal**: reconstructing an
+  object of an *unrecognized* class (outside a vetted namespace like
+  `torch`/`numpy`/`collections`) raises a low `unvetted_state` finding, so the
+  file is surfaced for review rather than cleared. The out-of-scope sample
+  (`oos_classsetstate.pkl`) moved from *clean* to *notable*; it stays out of the
+  malicious-recall benchmark because the actual payload is external and
+  unconfirmable.
+- **`PERSID` and extension codes are surfaced, not silently ignored.**
+  Persistent-id references (resolved by the loader's `persistent_load` hook) and
+  unknown extension codes raise low `opaque_persid` / `opaque_extension`
+  findings; extension codes registered in `copyreg` are **resolved** to their
+  global, so a registered dangerous callable is still caught.
+- **safetensors** carries no code-execution primitive; picklelens validates its
+  header and reports it as the safe format it is.
 
 ## Safety of the test corpus
 

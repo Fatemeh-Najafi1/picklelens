@@ -221,8 +221,69 @@ def analyze_stream(data: bytes, name: str, machine: Machine | None = None) -> St
             )
         )
 
+    # (4) An object of an *unvetted* class is reconstructed and its __setstate__
+    # / __dict__ runs on load. The code itself lives in that class, not in the
+    # pickle, so we cannot see it - but we flag the risk for review rather than
+    # clearing the file. (This narrows the "__setstate__ is out of scope" limit.)
+    for inv in trace.invocations:
+        if inv.via != "build":
+            continue
+        cq = _build_class(inv.target)
+        if cq and not _is_vetted_class(cq) and classify(cq) is None:
+            result.findings.append(Finding(
+                severity=Severity.LOW, category="unvetted_state",
+                qualname=cq,
+                note="reconstructs an object of an unrecognized class; its "
+                     "__setstate__/__init__ runs on load (code external to the "
+                     "pickle, not statically visible)",
+                reachable=True, via="build", position=inv.position,
+                stream=name, evidence=f"BUILD -> {cq}.__setstate__(...)"))
+
+    # (5) Surface statically-opaque constructs instead of ignoring them.
+    for op, pos in trace.opaque:
+        if op in ("PERSID", "BINPERSID"):
+            note = ("persistent-id reference, resolved by the unpickler's "
+                    "persistent_load hook - opaque to static analysis")
+            cat = "opaque_persid"
+        elif op.startswith("EXT"):
+            note = ("unknown extension code, resolved via the copyreg registry "
+                    "at load time - opaque to static analysis")
+            cat = "opaque_extension"
+        else:
+            continue
+        result.findings.append(Finding(
+            severity=Severity.LOW, category=cat, qualname=op,
+            note=note, reachable=False, via="opaque", position=pos,
+            stream=name, evidence=op))
+
     result.findings.sort(key=lambda f: (-f.severity, f.position))
     return result
+
+
+# Namespaces whose classes have known, benign reconstruction semantics - a BUILD
+# on one of these is ordinary model deserialization, not a review item.
+_VETTED_STATE_NS = (
+    "collections", "builtins", "__builtin__", "numpy", "torch", "sklearn",
+    "pandas", "scipy", "typing", "dataclasses", "datetime", "decimal",
+)
+
+
+def _is_vetted_class(qual: str) -> bool:
+    root = qual.split(".", 1)[0]
+    return any(root == ns or qual.startswith(ns + ".") for ns in _VETTED_STATE_NS)
+
+
+def _build_class(target: Sym):
+    """The class qualname an object was built from, given a BUILD target
+    Attr(obj, '__setstate__')."""
+    from .symbolic import Attr, Call, resolve
+    obj = target.obj if isinstance(target, Attr) else target
+    r = resolve(obj)
+    if isinstance(r, Call):
+        r = resolve(r.func)
+    if isinstance(r, Global):
+        return normalize(r.qualname)
+    return None
 
 
 # --- container handling -------------------------------------------------

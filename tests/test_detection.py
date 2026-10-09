@@ -86,3 +86,41 @@ def test_malformed_stream_does_not_crash():
 def test_truncated_is_reported_not_raised():
     res = scan_bytes(b"c", path="one-byte")
     assert res.streams[0].error is not None or res.verdict == "clean"
+
+
+# -- narrowed "honest limits": __setstate__, PERSID, extensions -----------
+
+def test_unvetted_setstate_class_is_flagged_for_review():
+    """An object of an unrecognized class reconstructed via BUILD (its
+    __setstate__ runs on load) is now surfaced as a low 'review' finding, not
+    cleared - even though the class code is external to the pickle."""
+    r = scan_file(SAMPLES / "oos_classsetstate.pkl")
+    assert r.verdict == "notable"            # was 'clean' before
+    assert any(f.category == "unvetted_state" for f in r.findings)
+
+
+def test_vetted_class_state_is_not_flagged():
+    from picklelens.scanner import scan_bytes
+    import pickle, collections
+    r = scan_bytes(pickle.dumps(collections.OrderedDict(a=1, b=2)))
+    assert r.verdict == "clean"
+
+
+def test_persistent_id_is_surfaced():
+    import io, pickle
+    from picklelens.scanner import scan_bytes
+
+    class P(pickle.Pickler):
+        def persistent_id(self, obj):
+            return "ref" if isinstance(obj, set) else None
+    buf = io.BytesIO()
+    P(buf).dump({"x": {1, 2, 3}})
+    r = scan_bytes(buf.getvalue())
+    assert any(f.category == "opaque_persid" for f in r.findings)
+
+
+def test_unknown_extension_code_is_surfaced():
+    from picklelens.scanner import scan_bytes
+    data = b"\x80\x02\x82\xff."            # PROTO 2, EXT1 code 255 (unregistered), STOP
+    r = scan_bytes(data)
+    assert any(f.category == "opaque_extension" for f in r.findings)

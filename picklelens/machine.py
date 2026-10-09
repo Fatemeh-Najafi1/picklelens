@@ -309,8 +309,22 @@ class Machine:
                     stack.append(PersistentRef(ident))
                     trace.opaque.append((name, pos))
                 elif name in ("EXT1", "EXT2", "EXT4"):
-                    stack.append(Extension(int(arg or 0)))
-                    trace.opaque.append((name, pos))
+                    code = int(arg or 0)
+                    # Resolve the extension code against copyreg's registry when
+                    # known, so a registered dangerous global is still caught;
+                    # otherwise keep it opaque and record it for review.
+                    try:
+                        import copyreg
+                        mod_name = copyreg._inverted_registry.get(code)
+                    except Exception:
+                        mod_name = None
+                    if mod_name:
+                        g = Global(mod_name[0], mod_name[1], dynamic=True)
+                        stack.append(g)
+                        trace.globals_referenced.append((g, pos))
+                    else:
+                        stack.append(Extension(code))
+                        trace.opaque.append((f"{name}(code={code})", pos))
                 elif name in ("NEXT_BUFFER", "READONLY_BUFFER"):
                     if name == "NEXT_BUFFER":
                         stack.append(Unknown("out-of-band buffer"))
