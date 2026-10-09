@@ -242,17 +242,19 @@ python -m agentaudit.injecagent --data <InjecAgent/data/test_cases_*.json> --pol
 ```
 ```
 Own corpus (incl. hard negatives):  recall 9/9 (100%), FPR 0/6 (0%)
-Real InjecAgent, 1,054 cases:        ds 94% · dh 51% · overall recall 73%, FPR 3%
+Real InjecAgent, 1,054 cases:        ds 100% · dh 51% · overall recall 76%, FPR 3%
+AgentDojo, 4 suites (52 pairs):      banking/slack/workspace 100% · travel 58% · overall 90%, FPR 0%
 ```
 
-The InjecAgent number is honest about where the paradigm is strong and weak:
-**94% on data-exfiltration** (there is a tainted destination to trace) but only
-**51% on direct-harm** (many harmful actions carry no attacker value into their
-arguments, so information-flow has nothing to trace — a structural limit, not a
-tuning bug). Adding a per-task **tool allowlist** (`--policy`, capability
-restriction — what FIDES/CaMeL do) lifts both to **100%** at the same FPR, which
-is the real lesson: declaring a policy beats post-hoc taint. See
-**[RESEARCH.md](RESEARCH.md)** and the journey in **[DEVLOG.md](DEVLOG.md)**.
+Two external benchmarks, honest about where the paradigm is strong and weak:
+**100% on data-exfiltration** (there is a tainted destination to trace) but
+weaker on **direct-harm** (many harmful actions carry no attacker value into
+their arguments, so information-flow has nothing to trace — a structural limit,
+not a tuning bug; AgentDojo's *travel* suite is hard for the same reason). Adding
+a per-task **tool allowlist** (`--policy`, capability restriction — what
+FIDES/CaMeL do) lifts InjecAgent to **100%** at the same FPR: declaring a policy
+beats post-hoc taint. See **[RESEARCH.md](RESEARCH.md)** and the journey in
+**[DEVLOG.md](DEVLOG.md)**.
 
 ### Testing it against a *real* traitor agent
 

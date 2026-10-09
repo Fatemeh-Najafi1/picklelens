@@ -7,3 +7,7 @@ picklescan>=0.0.20
 # modelscan pulls TensorFlow, so it is NOT required for the test suite or CI.
 # modelscan>=0.8
 # fickling>=0.1.12
+# Optional: the second agent benchmark (agentaudit/agentdojo_adapter.py).
+# agentdojo pulls many deps; NOT required for the test suite (that test skips
+# when it is absent).
+# agentdojo>=0.1

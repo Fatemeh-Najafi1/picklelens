@@ -298,3 +298,21 @@ def test_hijack_check_requires_attacker_target_not_just_tool():
     ]}
     assert harness.hijacked(legit, scenario) is False
     assert harness.hijacked(betrayal, scenario) is True
+
+
+def test_agentdojo_adapter_if_installed():
+    """If AgentDojo is installed, agentaudit should flag hijacked traces and not
+    false-alarm on resisted ones for the banking suite (a clean, identifier-rich
+    suite). Skipped when agentdojo isn't available (it is a heavy optional dep)."""
+    import pytest
+    pytest.importorskip("agentdojo")
+    from agentaudit import agentdojo_adapter as A
+    seen_hij = seen_res = False
+    for suite, ut, itk, hij, res in A.build_pairs(max_user_tasks=1):
+        if suite != "banking":
+            continue
+        assert audit(trace_mod.from_dict(hij)).verdict in ("betraying", "compromised")
+        assert audit(trace_mod.from_dict(res)).verdict not in ("betraying", "compromised")
+        seen_hij = seen_res = True
+        break
+    assert seen_hij and seen_res

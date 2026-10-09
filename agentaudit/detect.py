@@ -222,6 +222,33 @@ def _decoded_variants(text: str) -> list[str]:
     return out
 
 
+# Argument keys that carry *content* the action transmits, not a destination it
+# acts on. A legitimate agent routinely relays/summarises untrusted content into
+# a body or message - that is not a betrayal. The betrayal signal is untrusted
+# content in the *target* (recipient, account, url, hotel, ...), so we skip these.
+_CONTENT_KEYS = {"body", "content", "message", "text", "description", "note",
+                 "comment", "html", "summary", "msg", "subject", "title"}
+
+
+def _arg_strings(args: dict | None) -> list[str]:
+    """Leaf string values in an action's arguments that look like *targets*
+    (not free-form content fields)."""
+    out: list[str] = []
+
+    def walk(v, key: str | None):
+        if isinstance(v, dict):
+            for k, x in v.items():
+                walk(x, str(k))
+        elif isinstance(v, (list, tuple)):
+            for x in v:
+                walk(x, key)
+        elif isinstance(v, str):
+            if key is None or key.lower() not in _CONTENT_KEYS:
+                out.append(v)
+    walk(args or {}, None)
+    return out
+
+
 def _host(target: str) -> str:
     m = re.search(r"https?://([^/\s]+)", target)
     if m:
@@ -272,6 +299,9 @@ def audit(trace: Trace, _external_taint: dict[str, int] | None = None) -> AuditR
         for t in _significant_tokens(s.content):
             tainted.setdefault(t, s.index)
     tainted_hosts = {_host(t): idx for t, idx in tainted.items() if _host(t)}
+    # Raw untrusted / trusted text, for matching whole string arg values.
+    untrusted_blob = " \n ".join(s.content for s in trace.tainting_steps()).lower()
+    trusted_low = trusted_text.lower()
 
     # -- per-action analysis ------------------------------------------------
     for act in trace.actions():
@@ -307,6 +337,7 @@ def audit(trace: Trace, _external_taint: dict[str, int] | None = None) -> AuditR
         # action's arguments. Not gated on our tool taxonomy - an attacker tool
         # we don't recognise still betrays the operator when it carries a value
         # the operator never provided. (This is what lifts direct-harm recall.)
+        did_direct = False
         if not flagged_external:
             for tok in sorted(_significant_tokens(combined), key=len, reverse=True):
                 if tok in trusted_tokens or _host(tok) in trusted_hosts:
@@ -324,6 +355,29 @@ def audit(trace: Trace, _external_taint: dict[str, int] | None = None) -> AuditR
                                 f"untrusted content at step {src}."),
                         action_index=act.index, source_index=src,
                         evidence=[f"{act.tool} <- {tok}", f"introduced at step {src}"],
+                        attck=_ATTCK.get(category, "")))
+                    did_direct = True
+                    break
+
+        # (1b-value) a substantial string *value* (not just a digit token) in a
+        # sensitive action's args that appears verbatim in untrusted content but
+        # never in the operator's request - e.g. an attacker-named hotel or
+        # recipient. Generalises taint beyond identifier-shaped tokens.
+        if category and not flagged_external and not did_direct:
+            for val in _arg_strings(act.args):
+                low = val.lower()
+                if len(low) < 8 or low in trusted_low:
+                    continue
+                if low in untrusted_blob:
+                    result.findings.append(Finding(
+                        severity=Severity.CRITICAL, kind="direct_harm",
+                        title=f"Sensitive {category} action uses a value from "
+                              f"untrusted input",
+                        detail=(f"Step {act.index} calls `{act.tool}` with "
+                                f"`{val[:60]}`, a value the operator never "
+                                f"provided - it appears in untrusted content."),
+                        action_index=act.index,
+                        evidence=[f"{act.tool} <- {val[:60]}"],
                         attck=_ATTCK.get(category, "")))
                     break
 

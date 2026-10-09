@@ -106,14 +106,14 @@ python -m agentaudit.injecagent --data InjecAgent/data/test_cases_ds_base.json \
 Result on the full 1,054 cases:
 
 ```
-ds (data stealing / exfiltration):  514/544  (94%) recall
-dh (direct harm):                   260/510  (51%) recall
-overall recall:                     774/1054 (73%)
-false-positive rate (resisted):      34/1054 ( 3%)
+ds (data stealing / exfiltration):  544/544  (100%) recall
+dh (direct harm):                   260/510  ( 51%) recall
+overall recall:                     804/1054 ( 76%)
+false-positive rate (resisted):      34/1054 (  3%)
 ```
 
 **The honest finding this exposes.** Provenance / taint detection is **strong for
-data exfiltration (94%)** — when the attack sends data somewhere, there is a
+data exfiltration (100%)** — when the attack sends data somewhere, there is a
 tainted destination to trace. It is **much weaker for direct harm (51%)**, because
 many direct-harm actions (unlock a door, set a thermostat, transfer to an account
 named only vaguely) carry **no attacker-supplied value into their arguments** —
@@ -148,6 +148,32 @@ agent's susceptibility and prompt-classifier defenses; it does not change the
 hijacked action, so a provenance detector is largely immune to it. This is a
 concrete argument for the paradigm over prompt-classification defenses (which the
 enhanced set is specifically built to break).
+
+## Second external benchmark: AgentDojo
+
+`agentaudit/agentdojo_adapter.py` runs the same hijacked/resisted-trace method
+over [AgentDojo](https://github.com/ethz-spylab/agentdojo)'s four suites, using
+each injection task's `ground_truth(env)` — the attacker's *exact* tool calls — to
+build faithful hijack traces (`pip install agentdojo`, then
+`python -m agentaudit.agentdojo_adapter`):
+
+```
+banking     18/18 (100%)   FPR 0/18
+slack       10/10 (100%)   FPR 0/10
+travel       7/12 ( 58%)   FPR 0/12
+workspace   12/12 (100%)   FPR 0/12
+TOTAL       47/52 ( 90%)   FPR 0/52
+```
+
+Travel is the hard suite for the same structural reason as InjecAgent's dh: the
+attacker's action (book a hotel) is the *same type* as the legitimate task, and
+its target is a hotel **name** (not an identifier), which can also legitimately
+come from untrusted sources — so surface taint cannot separate the injected
+reservation from a real one. This is exactly the case CaMeL addresses with
+data-flow-from-the-query. (Faithfulness caveat: our traces put the injection GOAL
+in the untrusted content, so the attacker's target originates there; a fully
+faithful environment where the *legitimate* target also comes from an untrusted
+tool output would stress FPR further — the same known limit.)
 
 ### The principled fix: capability restriction
 
