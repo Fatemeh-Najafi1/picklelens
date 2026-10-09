@@ -1,4 +1,25 @@
-# picklelens
+# picklelens — an AI-security toolkit
+
+[![CI](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml/badge.svg)](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml)
+![tests](https://img.shields.io/badge/tests-76%20passing-brightgreen)
+![python](https://img.shields.io/badge/python-3.10%2B-blue)
+
+Two modules, one idea — catching things that are *supposed* to be safe but have
+been turned into weapons:
+
+| Module | Catches | Headline result |
+|---|---|---|
+| **picklelens** | malicious ML model files (pickle / PyTorch / Keras / 7z) | **19/19** malicious samples — tops all four public scanners (picklescan, ModelScan, Fickling, ModelHawk), 0 false alarms |
+| **agentaudit** | hijacked "traitor" AI agents (prompt injection / memory poisoning) | caught a **real live** agent hijack; benchmarked on InjecAgent (1,054 cases) + AgentDojo (4 suites) |
+
+Honest by design — every benchmark states its losses and limits: the
+trial-and-error is in [DEVLOG.md](DEVLOG.md), the academic placement in
+[RESEARCH.md](RESEARCH.md) + [BIBLIOGRAPHY](agentaudit/BIBLIOGRAPHY.md), and the
+public-project landscape in [LANDSCAPE.md](LANDSCAPE.md).
+
+---
+
+## picklelens — malicious model-file scanner
 
 A **reachability scanner** for machine-learning model files
 (`.pkl`, `.pt`, `.pth`, `.bin`, `.ckpt`, object-array `.npy`/`.npz`,
