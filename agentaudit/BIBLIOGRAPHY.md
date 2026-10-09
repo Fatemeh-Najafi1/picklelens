@@ -100,8 +100,11 @@ match to "a defender agent turning on its operator".
 
 1. **Claim the determinism advantage** — deterministic provenance cannot be
    subverted/colluded like an LLM monitor (contrast with Terekhov et al.).
-2. **Build multi-agent provenance** — extend the trace model to inter-agent
-   messages as a trust tier; track lineage across agents to catch prompt-infection
-   propagation (aligns with AGATE / AuthGraph / Lineage-Graph).
+2. **Build multi-agent provenance** — *done* (`agentaudit/multiagent.py`): a
+   message from a compromised agent is untrusted and taints the recipient, so an
+   agent acting on a compromised upstream message is flagged as a *propagation*
+   betrayal with the infection chain. Extends the trace model to inter-agent
+   messages as a trust tier (aligns with AGATE / AuthGraph / Lineage-Graph).
+   Next: detect compositional/distributed backdoors across agents (open problem).
 3. **Name two honest out-of-scope limits** — the intention-hiding *mole* and
    *distributed/compositional* backdoors; provenance has nothing to trace in either.

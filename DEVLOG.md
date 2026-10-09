@@ -160,8 +160,23 @@ hijacked" check first only asked whether `send_email` was called at all, which
 mislabelled qwen's *legitimate* customer reply as a hijack; fixed to require the
 attacker's target in the args.
 
+## Phase 8 — second agent benchmark, landscape, multi-agent
+
+- **AgentDojo** added as a second external benchmark (47/52, 90%, 0 FPR; travel
+  the hard suite). Diagnosing it drove a taint generalisation (string *target*
+  values, content fields excluded) that also lifted InjecAgent ds 94%→100%,
+  overall 73%→76%.
+- **Landscape + bibliography**: literature sweep (incl. the "defender becomes
+  betrayer" AI-control line) and a map of public projects. Five-way scanner
+  benchmark vs picklescan / ModelScan / Fickling / ModelHawk — picklelens leads
+  (19/19); ModelHawk is the strongest sibling (18/19), so the honest edge is
+  semantic resolution + enrichment + formats, not recall.
+- **Multi-agent provenance** (`multiagent.py`): prompt-infection propagation — a
+  compromised agent's message is untrusted and taints the recipient; an agent
+  acting on it is flagged with the infection chain. The frontier from the sweep.
+
 ## Open threads
 - Live web demo (parked): HF free tier blocks server-side Python; plan is a
   Pyodide static Space or PythonAnywhere.
-- Semantic taint, adaptive-attack (attacker-adapts-to-detector) evaluation —
-  open problems for the whole field.
+- Semantic taint; adaptive-attack evaluation; distributed/compositional backdoors
+  across agents; the intention-hiding "mole" — open problems for the whole field.

@@ -316,3 +316,44 @@ def test_agentdojo_adapter_if_installed():
         seen_hij = seen_res = True
         break
     assert seen_hij and seen_res
+
+
+# -- multi-agent prompt-infection propagation ----------------------------
+
+def test_multiagent_clean_coordination_not_flagged():
+    from agentaudit import multiagent
+    results = multiagent.audit_system(multiagent._demo_system(clean=True))
+    assert multiagent.system_verdict(results) == "clean"
+    assert multiagent.infection_chain(results) == []
+
+
+def test_multiagent_prompt_infection_propagates():
+    from agentaudit import multiagent
+    results = multiagent.audit_system(multiagent._demo_system(clean=False))
+    assert multiagent.system_verdict(results) == "compromised"
+    # The downstream agent acted on the compromised upstream agent's message.
+    disp = results["dispatcher"]
+    prop = [f for f in disp.findings if f.kind == "propagation"]
+    assert prop, "expected a propagation finding on the dispatcher"
+    assert any("researcher" in f.title for f in prop)
+    assert "dispatcher" in multiagent.infection_chain(results)
+
+
+def test_multiagent_trusted_message_is_not_tainting():
+    """A message from a *clean* upstream agent is trusted - acting on it must not
+    be flagged as propagation."""
+    from agentaudit import multiagent
+    from agentaudit.detect import audit
+    from agentaudit.trace import from_dict
+    system = {"agents": [
+        {"name": "A", "steps": [
+            {"kind": "user", "content": "Find the vendor payment address."},
+            {"kind": "output", "content": "done"}],
+         "message_out": "Pay the vendor at vendor@acme.com as the user requested."},
+        {"name": "B", "receives_from": ["A"], "steps": [
+            {"kind": "user", "content": "Process the vendor payment."},
+            {"kind": "tool_call", "tool": "send_email",
+             "args": {"to": "vendor@acme.com", "body": "payment confirmation"}}]},
+    ]}
+    results = multiagent.audit_system(system)
+    assert all(f.kind != "propagation" for f in results["B"].findings)

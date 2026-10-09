@@ -230,8 +230,12 @@ It reuses picklelens's IOC extractor, behavior classifier, and MITRE ATT&CK
 tagging, and covers the attack categories the field's benchmarks enumerate:
 exfiltration, direct-harm (financial / destructive / permission with no external
 target), encoded/obfuscated targets, injection-induced harm, sleeper triggers,
-policy/egress violations, and the **cross-session plant→trigger memory
-lifecycle** (`audit_sessions`).
+policy/egress violations, the **cross-session plant→trigger memory lifecycle**
+(`audit_sessions`), and **multi-agent prompt-infection propagation**
+(`audit_system` / `python -m agentaudit.multiagent`) — tracing provenance across
+the inter-agent trust boundary so an agent that acts on a message from a
+*compromised* upstream agent is flagged, with the infection chain back toward the
+external injection.
 
 ```bash
 python -m agentaudit audit trace.json                # verdict + evidence chains
