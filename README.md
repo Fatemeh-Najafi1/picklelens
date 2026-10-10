@@ -161,6 +161,24 @@ exact model list, per-file results, and caveats — is in
 [`bench/results/2026-10-10-colab.md`](bench/results/2026-10-10-colab.md), and the
 harness prints a provenance header on every run so future results stay trackable.
 
+**At scale.** [`bench/hub_scan.py`](bench/) extends the precision claim beyond a
+curated list: it walks the most-downloaded Hub models that ship a pickle and
+scans each. Across **100 popular real models** (761 repos examined, spanning
+`pytorch_model.bin`, `training_args.bin`, YOLO `.pt`, `.ckpt`):
+
+```
+Flag rate on 100 popular (presumed-benign) models — lower is better
+  picklelens   0/100 (0%)
+  picklescan   0/100 (0%)
+  modelhawk    30/100 (30%)   # mostly routine training_args.bin (20 of 30)
+```
+
+picklelens held **0% false positives at scale**. ModelHawk flagged 30%, mostly
+pickled `TrainingArguments` configs — its "any unfamiliar `GLOBAL` import is
+suspicious" heuristic firing on files that reference classes but never reach a
+code-execution sink. Full record:
+[`bench/results/2026-10-10-hub-scan.md`](bench/results/2026-10-10-hub-scan.md).
+
 ### Usage
 
 ```bash

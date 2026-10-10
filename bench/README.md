@@ -77,3 +77,8 @@ flag is a false positive unless the model is genuinely malicious. This is a
 *precision* study, not recall (real malicious models on the Hub are rare and
 removed quickly). Save the printed provenance + results as a new
 `results/<date>-hub-scan.md`.
+
+**First run recorded:** [`results/2026-10-10-hub-scan.md`](results/2026-10-10-hub-scan.md)
+— 100 popular real models (761 repos examined): **picklelens 0/100 false
+positives**, picklescan 0/100, ModelHawk 30/100 (mostly routine
+`training_args.bin`).
