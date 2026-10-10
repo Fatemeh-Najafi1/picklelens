@@ -34,9 +34,12 @@ def _sh(cmd: str):
 
 
 def setup():
-    _sh(f"{sys.executable} -m pip install -q "
-        "'git+https://github.com/Fatemeh-Najafi1/picklelens' "
-        "picklescan modelscan fickling huggingface_hub")
+    # Install each package separately so one incompatible dependency does not
+    # abort the whole command. (On Python 3.13 runtimes - e.g. current Colab -
+    # modelscan has no compatible release; it is simply skipped.)
+    for pkg in ["git+https://github.com/Fatemeh-Najafi1/picklelens",
+                "picklescan", "fickling", "huggingface_hub", "modelscan"]:
+        _sh(f"{sys.executable} -m pip install -q '{pkg}'")
     if not Path("ModelHawk").exists():
         _sh("git clone -q https://github.com/Pyhroff/ModelHawk")
     sys.path.insert(0, str(Path("ModelHawk").resolve()))
@@ -49,8 +52,8 @@ def setup():
 # --------------------------------------------------------------------------- #
 
 def picklelens_blocks(path):
-    from picklelens.scanner import scan_file
     try:
+        from picklelens.scanner import scan_file
         return scan_file(path).verdict == "malicious", False
     except Exception:
         return False, True
@@ -170,37 +173,46 @@ def fetch_benign(cache):
 
 
 def fetch_malicious(cache):
+    """Returns (malicious, canary_benign). Some scanner-test repos include a
+    deliberate benign canary ('..._BENIGN_ANY_DETECTION_IS_AN_ERROR'); flagging
+    it is a *false positive*, so it is routed to the benign set."""
     from huggingface_hub import list_repo_files, hf_hub_download
-    out = []
+    malicious, canary = [], []
     for repo in MALICIOUS_REPOS:
         try:
             files = list_repo_files(repo)
         except Exception as e:
             print(f"  skip {repo}: {str(e)[:60]}")
             continue
+        n = 0
         for fn in files:
-            if fn.lower().endswith(_PICKLE_SUFFIXES):
-                try:
-                    p = hf_hub_download(repo, fn, cache_dir=cache)
-                    out.append((f"{repo}/{fn}", p))
-                except Exception:
-                    pass
-        print(f"  listed {repo}: {len([f for f in files if f.lower().endswith(_PICKLE_SUFFIXES)])} pickle files")
-    return out
+            if not fn.lower().endswith(_PICKLE_SUFFIXES):
+                continue
+            try:
+                p = hf_hub_download(repo, fn, cache_dir=cache)
+            except Exception:
+                continue
+            n += 1
+            if "benign" in fn.lower():
+                canary.append((f"{repo}/{fn}", p))
+            else:
+                malicious.append((f"{repo}/{fn}", p))
+        print(f"  listed {repo}: {n} pickle files")
+    return malicious, canary
 
 
 # --------------------------------------------------------------------------- #
 # 3. Run + report.
 # --------------------------------------------------------------------------- #
 
-def _scan_all(items, truth_malicious):
-    names = list(SCANNERS)
+def _scan_all(items, truth_malicious, tools):
+    names = list(tools)
     stats = {n: dict(flag=0, err=0, total=0) for n in names}
     print(f"\n{'model':52} " + " ".join(f"{n:>10}" for n in names))
     print("-" * (54 + 11 * len(names)))
     for label, path in items:
         row = f"{label[:52]:52} "
-        for n, fn in SCANNERS.items():
+        for n, fn in tools.items():
             blocked, errored = fn(path)
             s = stats[n]
             s["total"] += 1
@@ -223,24 +235,43 @@ def _scan_all(items, truth_malicious):
 
 def main():
     setup()
+    try:
+        import picklelens  # noqa: F401
+    except Exception:
+        print("\nFATAL: picklelens failed to install. Run manually:\n"
+              "  pip install git+https://github.com/Fatemeh-Najafi1/picklelens")
+        return
+
     cache = "hf_cache"
     print("\n=== downloading REAL benign models (pickle format) ===")
     benign = fetch_benign(cache)
-    print(f"\n{len(benign)} benign models downloaded")
     print("\n=== downloading EXTERNAL malicious / scanner-test pickles ===")
-    malicious = fetch_malicious(cache)
-    print(f"\n{len(malicious)} malicious test files downloaded")
+    malicious, canary = fetch_malicious(cache)
+    benign += canary               # the 'BENIGN' canary is a hard negative
+    print(f"\n{len(benign)} benign models, {len(malicious)} malicious test files")
+
+    # Drop scanners not available on this runtime (e.g. modelscan on Py 3.13).
+    tools = dict(SCANNERS)
+    if benign:
+        probe = benign[0][1]
+        tools = {}
+        for n, fn in SCANNERS.items():
+            blocked, errored = fn(probe)
+            if errored and not blocked:
+                print(f"(skipping {n}: not available on this runtime)")
+            else:
+                tools[n] = fn
 
     print("\n" + "=" * 70)
     print("REAL BENIGN MODELS — false-positive rate (lower is better)")
     print("=" * 70)
-    _scan_all(benign, truth_malicious=False)
+    _scan_all(benign, False, tools)
 
     if malicious:
         print("\n" + "=" * 70)
         print("EXTERNAL MALICIOUS PICKLES — recall (higher is better)")
         print("=" * 70)
-        _scan_all(malicious, truth_malicious=True)
+        _scan_all(malicious, True, tools)
 
     print("\nDone. (Static analysis only — nothing was deserialized or executed.)")
 
