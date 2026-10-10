@@ -25,10 +25,19 @@ Nothing is deserialized or executed — every scanner is static.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# Silence Hugging Face's per-file download progress bars and telemetry *before*
+# huggingface_hub is imported. Those bars otherwise flood the output with
+# thousands of lines and bury the final results table (and overflow paste
+# limits). We only want the one-line-per-model verdicts and the summary.
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")  # xet backend prints its own bars
 
 _PICKLE_SUFFIXES = (".bin", ".pkl", ".pickle", ".pt", ".pth", ".ckpt", ".model")
 _PICKLE_HEADS = (b"\x80\x02", b"\x80\x03", b"\x80\x04", b"\x80\x05", b"PK")
@@ -158,7 +167,16 @@ def main(argv=None):
         return
     provenance(args)
 
+    import logging
     from huggingface_hub import list_models, hf_hub_download, HfApi
+    # Quiet the hub's own INFO/WARNING chatter ("Invalid model-index…",
+    # unauthenticated-request notices) so only our verdict lines remain.
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+    try:
+        from huggingface_hub.utils import logging as hf_logging
+        hf_logging.set_verbosity_error()
+    except Exception:
+        pass
     api = HfApi()
     max_bytes = args.max_mb * 1024 * 1024
 
