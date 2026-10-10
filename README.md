@@ -145,9 +145,16 @@ REAL benign models — false positives (lower is better)
 picklelens was the **only scanner with zero false positives on real models** —
 its curated-sink / reachability design trades a little recall for precision the
 "anything unfamiliar is suspicious" scanners cannot match. The recall run also
-did its job: it surfaced a real gap (a pickle that calls `sys.exit` on load, a
-denial-of-service, was missed) that both competitors caught — now fixed with a
-`process_control` sink family and a regression sample.
+did its job: it surfaced a real gap (a pickle that calls `sys.exit` on load was
+missed) that both competitors caught — fixed with a `process_control` sink family
+and a regression sample. After the fix, on the external malicious set:
+
+```
+scanner      recall      real-model FPR
+picklelens   7/10 (70%)  0/20 (0%)    # leads picklescan on both axes
+picklescan   6/10 (60%)  1/20 (5%)
+modelhawk    8/10 (80%)  2/20 (10%)   # higher recall, but 10% FPR on real models
+```
 
 The full run record — date, environment (Colab / Python 3.13), tool versions,
 exact model list, per-file results, and caveats — is in
