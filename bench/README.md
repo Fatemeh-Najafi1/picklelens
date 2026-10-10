@@ -57,3 +57,23 @@ tool versions, exact model list, and results — so numbers stay trackable and
 reproducible. See [`results/2026-10-10-colab.md`](results/2026-10-10-colab.md).
 The harness also prints a provenance header (date, Python version, installed
 scanner versions, corpus) at the start of every run.
+
+## Scale precision study (`hub_scan.py`)
+
+`hub_scan.py` walks the most-downloaded Hub models that ship a pickle file,
+scans each, and reports the aggregate **flag rate on popular (presumed-benign)
+models** — the precision claim at scale. It downloads, scans, and deletes each
+model in turn, so peak disk stays ~one model (safe for N in the hundreds).
+
+Colab / Kaggle (one cell; Kaggle needs Internet on):
+```python
+!wget -qO hub_scan.py "https://raw.githubusercontent.com/Fatemeh-Najafi1/picklelens/main/bench/hub_scan.py"
+!python hub_scan.py --n 300 --max-mb 300
+```
+
+`--n` models to scan, `--max-mb` skips pickle files larger than this (keeps the
+run bounded). Every flag is listed so it can be inspected — on popular models a
+flag is a false positive unless the model is genuinely malicious. This is a
+*precision* study, not recall (real malicious models on the Hub are rare and
+removed quickly). Save the printed provenance + results as a new
+`results/<date>-hub-scan.md`.
