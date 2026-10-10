@@ -1,7 +1,7 @@
 # picklelens — an AI-security toolkit
 
 [![CI](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml/badge.svg)](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-94%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-97%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,7 +11,7 @@ been turned into weapons:
 | Module | Catches | Headline result |
 |---|---|---|
 | **[picklelens](#picklelens--malicious-model-file-scanner)** | malicious ML model files (pickle / PyTorch / Keras / 7z) | **22/22** malicious samples incl. evasions — tops all four public scanners (picklescan, ModelScan, Fickling, ModelHawk); the only one with 0 false alarms |
-| **[agentaudit](#agentaudit--traitor-agent-detection)** | hijacked "traitor" AI agents (prompt injection / memory poisoning) | caught a **real live** agent hijack; benchmarked on InjecAgent (1,054 cases) + AgentDojo (4 suites) |
+| **[agentaudit](#agentaudit--traitor-agent-detection)** | hijacked "traitor" AI agents (prompt injection / memory poisoning) | caught a **real live** agent hijack; on external benchmarks **100% recall / 0% false positives** on InjecAgent (1,054 cases, with tool allowlist) and 90% / 0% on AgentDojo |
 
 Both are **deterministic, non-executing static analysers**: picklelens never runs
 the pickle, agentaudit never runs the agent. That makes them unforgeable — a
@@ -311,8 +311,8 @@ python -m agentaudit.multiagent            # prompt-infection propagation demo
 
 ```
 Own corpus (incl. hard negatives):  recall 13/13 (100%), FPR 0/9 (0%)
-Real InjecAgent, 1,054 cases:        ds 100% · dh 40% · overall 70% (taint) / 100% (with tool allowlist), FPR 3%
-AgentDojo, 4 suites (522 pairs):     recall 90% · FPR ~1% (down from 6% after fixing degenerate pairings + a heuristic)
+Real InjecAgent, 1,054 cases:        ds 100% · dh 38% · overall 70% (taint) / 100% (with tool allowlist), FPR 0%
+AgentDojo, 4 suites (134 pairs):     recall 120/134 (90%), FPR 0/134 (0%)
 ```
 
 Two external benchmarks, honest about where the paradigm is strong and weak:
@@ -322,8 +322,16 @@ their arguments, so information-flow has nothing to trace — a structural limit
 not a tuning bug; AgentDojo's *travel* suite is hard for the same reason). Adding
 a per-task **tool allowlist** (`--policy`, capability restriction — what
 FIDES/CaMeL do) lifts InjecAgent to **100%**: declaring a policy beats post-hoc
-taint, which is the deployment recommendation. Full detail and the honest FPR
-breakdown in **[RESEARCH.md](RESEARCH.md)**.
+taint, which is the deployment recommendation.
+
+Both runs are recorded with full provenance in
+[`bench/results/2026-10-10-agentaudit-external.md`](bench/results/2026-10-10-agentaudit-external.md).
+As with the picklelens real-model run, running these at scale earned its keep:
+it surfaced two false-positive sources the bundled corpus never hit (a transient
+conditional injection mis-scored as a memory *sleeper*; an operator-authorised
+payment mis-scored as injection harm), both now fixed and pinned by regression
+tests, taking FPR on both benchmarks to **0%** with no loss of recall. Full
+detail and the honest limits in **[RESEARCH.md](RESEARCH.md)**.
 
 ### Testing it against a *real* traitor agent
 
