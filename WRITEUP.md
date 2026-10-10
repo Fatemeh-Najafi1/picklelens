@@ -38,13 +38,15 @@ terminal report, JSON, HTML, or SARIF 2.1.0 for GitHub code scanning.
 The core is **Python standard library only** and **deterministic** — it never
 executes the thing it inspects, which matters when that thing is adversarial.
 
-A second, more experimental module, **agentaudit**, applies the same
-"non-executing static analysis of something adversarial" idea to AI agent traces,
-flagging when an agent appears to have been hijacked by prompt injection or
-memory poisoning. It is benchmarked against the external InjecAgent (1,054 cases)
-and AgentDojo suites, and it caught a real live agent hijack in testing — but it
-is the less-proven half of the toolkit, and the writeup below focuses on the
-validated scanner.
+A second module, **agentaudit**, applies the same "non-executing static analysis
+of something adversarial" idea to AI agent traces, flagging when an agent appears
+to have been hijacked by prompt injection or memory poisoning. It is evaluated
+against two external third-party benchmarks — InjecAgent (1,054 attack cases) and
+AgentDojo (four suites) — where it reaches **100% recall at 0% false positives on
+InjecAgent** (with a per-task tool allowlist; 70% on provenance/taint alone) and
+**90% recall at 0% false positives on AgentDojo**, and it caught a real live agent
+hijack in end-to-end testing. The scanner is still the more mature half; the
+sections below focus on it, with the agentaudit result summarised at the end.
 
 ## Why it's different: reachability, not names
 
@@ -123,6 +125,29 @@ import is suspicious" heuristic fires on files that *reference* classes but neve
 *reach* a code-execution sink. Same files, opposite verdicts: the
 precision/recall tradeoff made concrete on real data.
 
+### 4. agentaudit on external agent-security benchmarks
+
+The same validate-at-scale discipline, applied to the defense module. agentaudit
+is a static post-hoc trace auditor, so it runs on third-party attack data CPU-only
+with no LLM:
+
+| benchmark | configuration | recall | false-positive rate |
+|---|---|---|---|
+| InjecAgent (1,054 cases) | provenance/taint only | 70% (ds 100%, dh 38%) | **0%** |
+| InjecAgent (1,054 cases) | + capability restriction | **100%** | **0%** |
+| AgentDojo (134 pairs, 4 suites) | provenance + category | 90% | **0%** |
+
+The honest shape: taint catches data-stealing perfectly but only part of
+direct-harm (many harmful actions carry no data to trace), and a per-task tool
+allowlist closes that gap — the layered-defense result, measured. Running these
+at scale **earned its keep exactly as the scanner's real-model run did**: it
+exposed two false-positive sources the bundled corpus never hit (a transient
+conditional injection mis-scored as a memory *sleeper*; an operator-authorised
+payment mis-scored as injection harm). Both are now fixed and pinned by
+regression tests, taking false positives on both benchmarks to 0% with no loss of
+recall. Full record:
+[`bench/results/2026-10-10-agentaudit-external.md`](bench/results/2026-10-10-agentaudit-external.md).
+
 ## Scope and limits (stated plainly)
 
 - This analyzes **pickle-based model files.** It is not a general antivirus: no
@@ -132,13 +157,16 @@ precision/recall tradeoff made concrete on real data.
 - Recall is high but not claimed to be complete — novel evasions are always
   possible, which is exactly why the real-model run was designed to surface gaps
   in the tool, and did.
-- **agentaudit** is experimental: the detection approach is designed and has
-  external-benchmark harnesses, but it has not been validated to the same
-  standard as the scanner, and I describe it that way everywhere.
+- **agentaudit**'s strength is uneven by design: provenance/taint catches
+  data-exfiltration perfectly but only ~38% of direct-harm actions on its own
+  (many carry no attacker value to trace — a structural limit), which a
+  capability-restriction policy then lifts to 100%. The AgentDojo *travel* suite
+  (state-changing bookings) is its honest weak spot at ~58% recall. These are
+  described plainly in [RESEARCH.md](RESEARCH.md) and the run record.
 
 ## Engineering practices
 
-- **94 passing tests**, CI on every push, MIT licensed.
+- **97 passing tests**, CI on every push, MIT licensed.
 - Every benchmark prints a provenance header (date, Python version, tool
   versions, corpus) and each real run is archived so numbers stay reproducible.
 - Honesty is a design constraint, not an afterthought: every benchmark states
