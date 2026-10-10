@@ -149,6 +149,11 @@ did its job: it surfaced a real gap (a pickle that calls `sys.exit` on load, a
 denial-of-service, was missed) that both competitors caught — now fixed with a
 `process_control` sink family and a regression sample.
 
+The full run record — date, environment (Colab / Python 3.13), tool versions,
+exact model list, per-file results, and caveats — is in
+[`bench/results/2026-10-10-colab.md`](bench/results/2026-10-10-colab.md), and the
+harness prints a provenance header on every run so future results stay trackable.
+
 ### Usage
 
 ```bash

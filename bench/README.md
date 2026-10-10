@@ -49,3 +49,11 @@ real-world precision claim our synthetic corpus can only hint at.
 Edit `BENIGN_REPOS` / `MALICIOUS_REPOS` in the script to widen the corpus.
 Downloads that 404 (models that are safetensors-only now) are skipped
 automatically.
+
+## Run records
+
+Each real run is recorded under `bench/results/` with its date, environment,
+tool versions, exact model list, and results — so numbers stay trackable and
+reproducible. See [`results/2026-10-10-colab.md`](results/2026-10-10-colab.md).
+The harness also prints a provenance header (date, Python version, installed
+scanner versions, corpus) at the start of every run.

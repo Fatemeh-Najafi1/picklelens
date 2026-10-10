@@ -233,6 +233,39 @@ def _scan_all(items, truth_malicious, tools):
     return stats
 
 
+def provenance():
+    """Print exactly what, where, and when — so a run is reproducible later."""
+    import datetime
+    import platform
+    try:
+        from importlib.metadata import version
+    except Exception:  # pragma: no cover
+        version = lambda _p: "n/a"  # noqa: E731
+
+    def v(pkg):
+        try:
+            return version(pkg)
+        except Exception:
+            return "not installed"
+
+    mh = subprocess.run("git -C ModelHawk rev-parse --short HEAD",
+                        shell=True, capture_output=True, text=True).stdout.strip()
+    print("=" * 70)
+    print("RUN PROVENANCE")
+    print("=" * 70)
+    print(f"  date (UTC)   : {datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')}")
+    print(f"  python       : {platform.python_version()}  ({platform.system()} {platform.machine()})")
+    print(f"  picklelens   : {v('picklelens')}")
+    print(f"  picklescan   : {v('picklescan')}")
+    print(f"  fickling     : {v('fickling')}")
+    print(f"  modelscan    : {v('modelscan')}")
+    print(f"  modelhawk    : {mh or 'cloned (HEAD)'}")
+    print(f"  benign repos : {len(BENIGN_REPOS)} listed")
+    print(f"  malicious repos : {', '.join(MALICIOUS_REPOS)}")
+    print("  note         : competitors with no release for this Python are skipped.")
+    print()
+
+
 def main():
     setup()
     try:
@@ -241,6 +274,7 @@ def main():
         print("\nFATAL: picklelens failed to install. Run manually:\n"
               "  pip install git+https://github.com/Fatemeh-Najafi1/picklelens")
         return
+    provenance()
 
     cache = "hf_cache"
     print("\n=== downloading REAL benign models (pickle format) ===")
