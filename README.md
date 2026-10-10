@@ -10,13 +10,41 @@ been turned into weapons:
 
 | Module | Catches | Headline result |
 |---|---|---|
-| **picklelens** | malicious ML model files (pickle / PyTorch / Keras / 7z) | **22/22** malicious samples (incl. evasions) — tops all four public scanners (picklescan, ModelScan, Fickling, ModelHawk); only tool with 0 false alarms |
-| **agentaudit** | hijacked "traitor" AI agents (prompt injection / memory poisoning) | caught a **real live** agent hijack; benchmarked on InjecAgent (1,054 cases) + AgentDojo (4 suites) |
+| **[picklelens](#picklelens--malicious-model-file-scanner)** | malicious ML model files (pickle / PyTorch / Keras / 7z) | **22/22** malicious samples incl. evasions — tops all four public scanners (picklescan, ModelScan, Fickling, ModelHawk); the only one with 0 false alarms |
+| **[agentaudit](#agentaudit--traitor-agent-detection)** | hijacked "traitor" AI agents (prompt injection / memory poisoning) | caught a **real live** agent hijack; benchmarked on InjecAgent (1,054 cases) + AgentDojo (4 suites) |
 
-Honest by design — every benchmark states its losses and limits: the
+Both are **deterministic, non-executing static analysers**: picklelens never runs
+the pickle, agentaudit never runs the agent. That makes them unforgeable — a
+property that matters when the thing you are inspecting is adversarial.
+
+**Honest by design** — every benchmark states its losses and limits. The
 trial-and-error is in [DEVLOG.md](DEVLOG.md), the academic placement in
 [RESEARCH.md](RESEARCH.md) + [BIBLIOGRAPHY](agentaudit/BIBLIOGRAPHY.md), and the
 public-project landscape in [LANDSCAPE.md](LANDSCAPE.md).
+
+## Install
+
+```bash
+git clone https://github.com/Fatemeh-Najafi1/picklelens
+cd picklelens
+pip install -e .                     # installs the `picklelens` and `agentaudit` commands
+pip install -r requirements-dev.txt  # optional: pytest + scanners for the benchmarks
+```
+
+Core analysis is Python standard library only — no heavy dependencies, and it
+never imports or runs the files it scans.
+
+## Quick start
+
+```bash
+# picklelens — scan a model file
+picklelens scan model.pt
+picklelens scan ./models -r --report report.html      # shareable HTML report
+
+# agentaudit — audit an agent's execution trace
+agentaudit audit agentaudit/samples/betraying_injection.json
+python -m agentaudit.harness --ollama                 # run a REAL local agent and audit it (free)
+```
 
 ---
 
@@ -45,7 +73,8 @@ downloader/dropper, persistence — tags each with its **MITRE ATT&CK**
 technique, extracts **indicators of compromise** (URLs, IPs, domains, shell
 commands, ransom notes, wallet addresses) straight out of the payload, and
 assigns a **0–100 risk score**. Output is a colorized terminal report, JSON, or
-a self-contained **HTML report**.
+a self-contained **HTML report**; `--sarif` emits SARIF 2.1.0 for GitHub code
+scanning.
 
 > **Scope, stated honestly:** this analyzes *pickle-based model files*. It is
 > not a general antivirus for arbitrary executables — it does not do PE/ELF
@@ -53,39 +82,29 @@ a self-contained **HTML report**.
 > labels describe the *behavior reachable in the pickle*, not a signature match
 > against a known family.
 
-## Why not just use picklescan?
+### Why not just use picklescan?
 
 [picklescan](https://github.com/mmaitre314/picklescan) is the scanner Hugging
 Face runs in its pipeline, and it is good. It lists the global references in a
-pickle and grades each against a safe allowlist and an unsafe blocklist:
-
-| picklescan verdict | meaning | blocks in CI? |
-|---|---|---|
-| **Dangerous** | global on its unsafe list (`os.*`, `subprocess.*`, …) | yes (`infected`) |
-| **Suspicious** | any global not on its small safe allowlist | no — soft counter |
-| **Innocuous** | on the safe allowlist | no |
-
-The gap is structural: picklescan reasons about **names**, not **behavior**. It
-does not model `REDUCE`, so it cannot tell a *referenced* name from an
-*invoked* one, cannot resolve a call assembled from parts, and floods
-everything unfamiliar into "suspicious" — the bucket real pipelines stop
-gating on because it is mostly benign noise.
-
-picklelens instead builds the call graph. That yields:
+pickle and grades each against a safe allowlist and an unsafe blocklist. The gap
+is structural: picklescan reasons about **names**, not **behavior**. It does not
+model `REDUCE`, so it cannot tell a *referenced* name from an *invoked* one,
+cannot resolve a call assembled from parts, and floods everything unfamiliar
+into "suspicious" — the bucket real pipelines stop gating on. picklelens instead
+builds the call graph:
 
 - **Reachability** — *called* vs merely *referenced*, graded differently.
 - **Resolution** — `getattr(__import__('os'), 'system')` and
   `operator.getitem(vars(import_module('os')), 'system')` both resolve to
   `os.system`, reported with the real arguments.
-- **Alias normalization** — `nt.system` / `posix.system` → `os.system`,
-  `__builtin__` → `builtins`.
-- **Precision** — the blocking verdict corresponds to reachable code
-  execution, not to a name appearing in a blocklist.
+- **Alias normalization** — `nt.system` / `posix.system` → `os.system`.
+- **Precision** — the blocking verdict corresponds to reachable code execution,
+  not to a name appearing in a blocklist.
 
 ### Benchmark
 
-On the bundled labelled corpus (22 malicious incl. documented evasions,
-11 benign incl. realistic models), gating on each tool's **blocking** verdict.
+On the bundled labelled corpus (22 malicious incl. documented evasions, 11
+benign incl. realistic models), gating on each tool's **blocking** verdict.
 Five-way, vs every public pickle/model scanner
 (`python -m tests.benchmark_scanners`; competitor block thresholds set
 *generously* so the comparison is honest):
@@ -108,20 +127,22 @@ globals, and a Keras Lambda RCE. Fickling also **false-flags a legitimate
 Fickling, ModelHawk are optional — the benchmark skips any not installed;
 ModelHawk via `MODELHAWK_DIR=/path/to/ModelHawk`.)
 
-## Usage
+### Usage
 
 ```bash
-python -m picklelens scan model.pt
-python -m picklelens scan ./models --recursive --min medium
-python -m picklelens scan model.bin --json
-python -m picklelens scan ./models -r --report report.html   # shareable HTML
-python -m picklelens scan ./models -r --sarif out.sarif       # GitHub code scanning
+picklelens scan model.pt
+picklelens scan ./models --recursive --min medium
+picklelens scan model.bin --json
+picklelens scan ./models -r --report report.html   # shareable HTML
+picklelens scan ./models -r --sarif out.sarif       # GitHub code scanning
 ```
 
 Supported inputs: bare pickles; PyTorch `.pt`/`.pth` and `.npz` (ZIP);
 object-array `.npy`; Keras `.keras` (ZIP) and `.h5` (HDF5) — including
-**Lambda-layer** code execution, a vector independent of pickle; `.7z`
-archives (with `py7zr` installed); and `safetensors` (validated as safe).
+**Lambda-layer** code execution, a vector independent of pickle; `.7z` archives
+(with `py7zr` installed); and `safetensors` (validated as safe). Exit code is
+non-zero when any file reaches the `--fail-on` severity (default `high`), so it
+drops straight into CI.
 
 Example (a ransomware-behavior sample):
 
@@ -136,15 +157,7 @@ Example (a ransomware-behavior sample):
        ransom_signals   encrypted-file extension, ransom-note language
 ```
 
-Exit code is non-zero when any file reaches the `--fail-on` severity (default
-`high`), so it drops straight into CI:
-
-```yaml
-# .github/workflows/scan.yml
-- run: python -m picklelens scan ./models -r --fail-on high
-```
-
-## How it works
+### How it works
 
 ```
 pickletools.genops        symbolic Machine            rules              scanner
@@ -157,54 +170,35 @@ pickletools.genops        symbolic Machine            rules              scanner
   resolver that collapses reflection/alias chains onto a concrete callable.
 - **`machine.py`** — a non-executing interpreter for the full opcode set
   (`REDUCE`, `NEWOBJ`, `BUILD`, `STACK_GLOBAL`, `INST`, `OBJ`, memo, marks).
-  It never imports or calls anything; it only records what the program *would*.
-- **`rules.py`** — the sink catalog (code exec, process exec, ctypes, nested
-  deserialization, reflection, network, filesystem), module-alias
-  normalization, and severity grading (invoked > referenced).
-- **`scanner.py`** — unwraps ZIP-based (`.pt`, `.npz`) and object-`.npy`
-  containers, sanity-checks safetensors, and produces the per-file verdict.
-- **`ioc.py`** — pulls indicators (URLs, IPs, domains, paths, wallet
-  addresses, shell one-liners, ransom/stealer markers) from the literal
-  strings the payload carries.
-- **`behavior.py`** — maps reachable sinks + indicators to named malware
-  behaviors with MITRE ATT&CK tags, a family profile, and a 0–100 risk score.
-- **`report.py`** — a self-contained, theme-aware HTML report (no external
-  assets).
+- **`rules.py`** — the sink catalog, module-alias normalization, and severity
+  grading (invoked > referenced).
+- **`scanner.py`** — unwraps ZIP/`.npy`/Keras/7z containers, splits multi-stream
+  pickles, validates safetensors, and produces the per-file verdict.
+- **`ioc.py` / `behavior.py` / `report.py` / `sarif.py`** — indicators, malware
+  behavior + ATT&CK + risk score, HTML report, SARIF output.
 
-## Scope and honest limits
+### Scope and honest limits
 
-- **Static only — but the blind spots are now flagged, not cleared.** If a
-  payload's malice lives in *installed class code* reached via `__setstate__`,
-  the dangerous bytes are not in the pickle stream, so no stream analyzer can see
-  the code itself. picklelens now flags the **risk signal**: reconstructing an
-  object of an *unrecognized* class (outside a vetted namespace like
-  `torch`/`numpy`/`collections`) raises a low `unvetted_state` finding, so the
-  file is surfaced for review rather than cleared. The out-of-scope sample
-  (`oos_classsetstate.pkl`) moved from *clean* to *notable*; it stays out of the
-  malicious-recall benchmark because the actual payload is external and
-  unconfirmable.
-- **`PERSID` and extension codes are surfaced, not silently ignored.**
-  Persistent-id references (resolved by the loader's `persistent_load` hook) and
-  unknown extension codes raise low `opaque_persid` / `opaque_extension`
-  findings; extension codes registered in `copyreg` are **resolved** to their
-  global, so a registered dangerous callable is still caught.
+- **Static only — but the blind spots are flagged, not cleared.** If a payload's
+  malice lives in *installed class code* reached via `__setstate__`, the
+  dangerous bytes are not in the stream, so no stream analyzer can see the code
+  itself. picklelens flags the **risk signal**: reconstructing an object of an
+  *unrecognized* class (outside a vetted namespace like `torch`/`numpy`/
+  `collections`) raises a low `unvetted_state` finding, surfacing the file for
+  review. The out-of-scope sample (`oos_classsetstate.pkl`) moves from *clean* to
+  *notable*; it stays out of the malicious-recall benchmark because the actual
+  payload is external and unconfirmable.
+- **`PERSID` and extension codes are surfaced, not silently ignored** — low
+  `opaque_persid` / `opaque_extension` findings; extension codes registered in
+  `copyreg` are resolved to their global, so a registered dangerous callable is
+  caught.
 - **safetensors** carries no code-execution primitive; picklelens validates its
   header and reports it as the safe format it is.
 
-## Safety of the test corpus
-
-Every "malicious" sample under `samples/` is **inert**. The payloads reproduce
-the *opcode shape* of an attack — the exact `REDUCE`/`STACK_GLOBAL`/`BUILD`
-patterns real malware uses to reach a sink — but the reachable command is only
-`echo PICKLELENS_CANARY`. Nothing opens a socket, spawns a shell, or touches
-the filesystem, and the scanner never executes any of it. Regenerate with
-`python tests/make_samples.py`.
-
-## Web demo
+### Web demo
 
 A small Flask app wraps the same engine: upload a model file, get the analysis
-rendered as a page. It is stateless (no database) and never executes uploads,
-so it runs on a free tier.
+rendered as a page. Stateless, never executes uploads, runs on a free tier.
 
 ```bash
 pip install -r web/requirements.txt
@@ -212,35 +206,28 @@ python -m web.app        # http://127.0.0.1:5000
 ```
 
 Deploy to Render with the included `render.yaml` blueprint (free plan,
-`/healthz` health check). Uploads are capped at 25 MB, held only in memory, and
-discarded after analysis.
+`/healthz`). Uploads capped at 25 MB, held in memory, discarded after analysis.
 
-## Development
+---
 
-```bash
-pip install -r requirements-dev.txt
-python tests/make_samples.py      # (re)generate the labelled corpus
-python -m pytest tests/ -q        # detection + robustness suite
-python -m tests.benchmark         # head-to-head vs picklescan
-```
+## agentaudit — traitor-agent detection
 
-## Related module: `agentaudit` — traitor-agent detection
-
-The same analysis philosophy, applied one layer up the AI stack. Where
-picklelens asks "will this model file run malicious code," `agentaudit` asks
-"has this AI agent been turned against its operator" — the indirect-prompt-
-injection / memory-poisoning threat where an outsider plants an instruction in
-untrusted content (a retrieved doc, a tool result, a poisoned memory) and the
-agent then acts on it.
+The same analysis philosophy, one layer up the AI stack. Where picklelens asks
+"will this model file run malicious code," `agentaudit` asks **"has this AI agent
+been turned against its operator"** — the indirect-prompt-injection /
+memory-poisoning threat where an outsider plants an instruction in untrusted
+content (a retrieved doc, a tool result, a poisoned memory) and the agent then
+acts on it. (It is the *betrayer*, not the betrayed: infected, now acting against
+its owner.)
 
 It analyses an agent execution trace (JSON) and reports betrayal with an
 **evidence chain**, centered on **provenance/taint**: an action is a betrayal
-when its target — an email, URL, or host — came from *untrusted* input and
-never appeared in the operator's trusted request. That is a fact about where a
-string originated, not a guess about intent, which is what makes it defensible.
+when its target — an email, URL, host, or account — came from *untrusted* input
+and never appeared in the operator's trusted request. That is a fact about where
+a value originated, not a guess about intent, which is what makes it defensible.
 
 ```bash
-python -m agentaudit audit agentaudit/samples/betraying_injection.json
+agentaudit audit agentaudit/samples/betraying_injection.json
 ```
 ```
    BETRAYING  support-agent-betraying
@@ -250,24 +237,26 @@ python -m agentaudit audit agentaudit/samples/betraying_injection.json
        content at step 2.  ATT&CK T1041
 ```
 
-It reuses picklelens's IOC extractor, behavior classifier, and MITRE ATT&CK
-tagging, and covers the attack categories the field's benchmarks enumerate:
-exfiltration, direct-harm (financial / destructive / permission with no external
-target), encoded/obfuscated targets, injection-induced harm, sleeper triggers,
-policy/egress violations, the **cross-session plant→trigger memory lifecycle**
-(`audit_sessions`), and **multi-agent prompt-infection propagation**
-(`audit_system` / `python -m agentaudit.multiagent`) — tracing provenance across
-the inter-agent trust boundary so an agent that acts on a message from a
-*compromised* upstream agent is flagged, with the infection chain back toward the
-external injection.
+**Coverage** (reusing picklelens's IOC extractor, behavior classifier, and ATT&CK
+tagging): exfiltration, direct-harm (financial / destructive / permission with no
+external target), encoded/obfuscated targets, injection-induced harm, sleeper
+triggers, policy/egress violations, the **cross-session plant→trigger memory
+lifecycle** (`audit_sessions`), and **multi-agent prompt-infection propagation**
+(`audit_system`) — tracing provenance across the inter-agent trust boundary so an
+agent that acts on a message from a *compromised* upstream agent is flagged, with
+the infection chain back toward the external injection.
 
 ```bash
-python -m agentaudit audit trace.json                # verdict + evidence chains
-python -m agentaudit audit trace.json --report r.html # shareable HTML report
-python -m agentaudit audit trace.json --sarif a.sarif # GitHub code scanning
-python -m agentaudit.benchmark                        # our own labelled corpus
+agentaudit audit trace.json                # verdict + evidence chains
+agentaudit audit trace.json --report r.html --sarif a.sarif
+python -m agentaudit.benchmark             # our own labelled corpus
 python -m agentaudit.injecagent --data <InjecAgent/data/test_cases_*.json> --policy
+python -m agentaudit.agentdojo_adapter     # second external benchmark
+python -m agentaudit.multiagent            # prompt-infection propagation demo
 ```
+
+### Benchmarks
+
 ```
 Own corpus (incl. hard negatives):  recall 13/13 (100%), FPR 0/9 (0%)
 Real InjecAgent, 1,054 cases:        ds 100% · dh 40% · overall 70% (taint) / 100% (with tool allowlist), FPR 3%
@@ -278,25 +267,18 @@ Two external benchmarks, honest about where the paradigm is strong and weak:
 **100% on data-exfiltration** (there is a tainted destination to trace) but
 weaker on **direct-harm** (many harmful actions carry no attacker value into
 their arguments, so information-flow has nothing to trace — a structural limit,
-not a tuning bug; AgentDojo's *travel* suite is hard for the same reason). The
-full-scale AgentDojo false-positive rate started at 6% and the honest diagnosis
-cut it to ~1%: ~2/3 were degenerate pairings (the attacker's target coincided
-with a recipient the user's own task used), the rest a layer that fired on *any*
-sensitive action after an injection — now required to match the injected
-directive's category. The residual ~1% is the irreducible data-flow-from-query
-limit (implicit authorisation like "follow the instructions in this file").
-Adding a per-task
-**tool allowlist** (`--policy`, capability restriction — what FIDES/CaMeL do)
-lifts InjecAgent to **100%**: declaring a policy beats post-hoc taint, which is
-the deployment recommendation. Full detail and the honest FPR breakdown in
-**[RESEARCH.md](RESEARCH.md)**; the journey in **[DEVLOG.md](DEVLOG.md)**.
+not a tuning bug; AgentDojo's *travel* suite is hard for the same reason). Adding
+a per-task **tool allowlist** (`--policy`, capability restriction — what
+FIDES/CaMeL do) lifts InjecAgent to **100%**: declaring a policy beats post-hoc
+taint, which is the deployment recommendation. Full detail and the honest FPR
+breakdown in **[RESEARCH.md](RESEARCH.md)**.
 
 ### Testing it against a *real* traitor agent
 
-Every number above is measured on traces we constructed. The end-to-end harness
-closes that gap: it runs an actual agent loop against a tool whose output hides
-an injection, lets the agent decide on its own whether to obey, captures its
-*real* trace, and audits it.
+Benchmark numbers above are measured on traces we constructed. The end-to-end
+harness closes that gap: it runs an actual agent loop against a tool whose output
+hides an injection, lets the agent decide on its own whether to obey, captures
+its *real* trace, and audits it.
 
 ```bash
 python -m agentaudit.harness            # deterministic mock agents (no key, CI)
@@ -305,23 +287,49 @@ python -m agentaudit.harness --openai   # FREE tier: Groq / Gemini (OpenAI-compa
 python -m agentaudit.harness --live     # Anthropic SDK (spends money)
 ```
 
-The mock run (in CI) shows both outcomes handled correctly: a gullible agent that
-obeys the injection is flagged `BETRAYING`; a cautious agent that ignores it is
-not. The `--ollama`, `--openai`, and `--live` runs are the honest test — a **real
-model**, not us, chooses whether to betray the operator, and we check whether
-agentaudit catches a genuine hijack.
+Verified on a real model via Groq's free tier: `gpt-oss-20b` genuinely fell for a
+disguised compliance injection and exfiltrated an account record → flagged
+`BETRAYING`; models that resisted were not flagged. Captured traces live in
+`agentaudit/live_results/`. **Free ways to run it:** a local `ollama pull
+llama3.2:1b` + `--ollama`, or a no-card [Groq](https://console.groq.com) key with
+`--openai`.
 
-**Free ways to run the real test** (no paid API needed):
-- **Local model** — `ollama pull llama3.2:1b` then `--ollama` (needs ~2 GB disk +
-  a couple GB RAM; a small model is fine, the detector audits whatever trace the
-  agent produces).
-- **Free cloud tier** — a no-card [Groq](https://console.groq.com) key, then
-  `OPENAI_BASE_URL=https://api.groq.com/openai/v1 OPENAI_API_KEY=… OPENAI_MODEL=llama-3.3-70b-versatile python -m agentaudit.harness --openai`.
-  Google Gemini's free tier works the same way via its OpenAI-compatible endpoint.
+**Honest scope:** built on the information-flow / provenance paradigm the research
+community endorses (FIDES / CaMeL / Agent-Sentry). It detects the dominant,
+checkable attack patterns with an evidence trail; it does not claim robustness
+against an adaptive attacker or full semantic taint — open problems for the whole
+field, documented in [RESEARCH.md](RESEARCH.md) and [BIBLIOGRAPHY](agentaudit/BIBLIOGRAPHY.md).
 
-**Honest scope:** this is built on the information-flow / provenance paradigm the
-research community endorses (FIDES / CaMeL / Agent-Sentry). Our adapter reports
-*detection on traces*, not InjecAgent's live-agent attack-success-rate. It detects the dominant, checkable attack patterns with an evidence
-trail; it does not claim robustness against an adaptive attacker or full semantic
-taint — open problems for the whole field. The prior work, the design mapping,
-and the residual limits are documented in **[RESEARCH.md](RESEARCH.md)**.
+---
+
+## Repository
+
+```
+picklelens/      the model-file scanner (symbolic machine, rules, scanner, ioc, behavior, report, sarif)
+agentaudit/      the traitor-agent detector (trace, detect, injecagent/agentdojo adapters, harness, multiagent)
+samples/         picklelens's inert labelled corpus (regenerate: python tests/make_samples.py)
+tests/           93 tests + the scanner benchmark harnesses
+web/             Flask upload demo for picklelens
+RESEARCH.md      prior work, design mapping, and honest limits (agentaudit)
+BIBLIOGRAPHY.md  curated 2025–2026 literature (agentaudit/)
+LANDSCAPE.md     where this toolkit sits among public projects
+DEVLOG.md        the real trial-and-error, including corrected mistakes
+```
+
+**Safety of the test corpus:** every "malicious" sample under `samples/` is
+**inert** — it reproduces the *opcode shape* of an attack but its only reachable
+command is `echo PICKLELENS_CANARY`. Nothing opens a socket, spawns a shell, or
+touches the filesystem, and the scanner never executes any of it.
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+python tests/make_samples.py      # (re)generate the labelled corpus
+python -m pytest tests/ -q        # detection + robustness suite (93 tests)
+python -m tests.benchmark_scanners  # five-way scanner comparison
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
