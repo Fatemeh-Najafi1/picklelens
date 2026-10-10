@@ -171,7 +171,9 @@ def main(argv=None):
     tmp = Path("hub_tmp")
 
     print("Scanning popular Hub models that ship a pickle file...\n")
-    for m in list_models(sort="downloads", direction=-1, limit=args.examine):
+    # `sort="downloads"` already returns most-downloaded first; the old
+    # `direction=-1` arg was removed in huggingface_hub 1.x.
+    for m in list_models(sort="downloads", limit=args.examine):
         if scanned >= args.n:
             break
         examined += 1
