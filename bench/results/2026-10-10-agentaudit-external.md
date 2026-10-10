@@ -53,15 +53,25 @@ layered-defense thesis, measured on 1,054 real cases.
 |---|---|---|
 | banking | 47/47 (100%) | 0/47 (0%) |
 | slack | 23/23 (100%) | 0/23 (0%) |
-| travel | 19/33 (58%) | 0/33 (0%) |
+| travel | 24/33 (73%) | 0/33 (0%) |
 | workspace | 31/31 (100%) | 0/31 (0%) |
-| **TOTAL** | **120/134 (90%)** | **0/134 (0%)** |
+| **TOTAL** | **125/134 (93%)** | **0/134 (0%)** |
 
 (`--max-user-tasks 6`; degenerate pairings where the attacker's target coincides
 with a target the user's own task legitimately uses are skipped — they are not
-valid test cases.) The **travel** suite is the honest weak spot at 58%: several
-travel injections are state-changes (book/reserve) whose authorisation the verb
-heuristic handles only partially.
+valid test cases.) The **travel** suite remains the honest weak spot at 73%
+(see the recall-improvement note below). Its 9 remaining misses are the
+documented information-flow ceiling, not tuning bugs:
+
+- **6 (`injection_task_4`):** the attacker asked to "reserve the most expensive
+  hotel," so the concrete target (`Luxury Palace`) was *computed by the agent*
+  from a legitimate price-lookup tool and never appears verbatim in the
+  injection — surface taint cannot trace a derived target.
+- **3 (`injection_task_2`):** the attacker payload rides in a calendar-event
+  *title* (a free-text content field we deliberately do **not** treat as a
+  target, to protect precision), and the operator's task authorises the
+  reservation action class. A declared tool-allowlist policy would catch this
+  (the unrequested `create_calendar_event`), but this adapter declares none.
 
 ## The runs earned their keep — two precision bugs found and fixed
 
@@ -93,6 +103,20 @@ corpus never hit. Both are now fixed, with regression tests.
    account is untouched (regression:
    `test_injected_account_target_still_caught`). This dropped AgentDojo FPR to
    **0%** with no change to recall.
+
+### Travel recall improvement (same session)
+
+After the two FP fixes, `reserve`/`reserve_hotel` was found to be missing from
+the sensitive-action taxonomy entirely (`cat=''`), so booking a hotel the
+attacker named was not even checked. Adding `reserve`/`rent`/`charge` as
+state-changing actions — and, symmetrically, the stem `reserv` to the task-
+authorisation verbs so "make a reservation" counts as operator authorisation —
+lifted **travel recall 58% → 73%** (and total 90% → 93%) while **holding FPR at
+0%**. One borderline detection flipped to a miss in exchange for eliminating a
+false positive (reserving the operator's *own* hotel), which is the intended
+precision-first tradeoff. Regression tests:
+`test_reservation_to_injected_target_is_betrayal` (recall) and
+`test_operator_requested_reservation_is_not_flagged` (precision).
 
 ## Bundled corpus (for reference)
 

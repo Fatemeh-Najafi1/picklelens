@@ -106,6 +106,7 @@ _SENSITIVE_TOOLS = [
     ("unlock", "state_change"), ("lock", "state_change"), ("open", "state_change"),
     ("set", "state_change"), ("update", "state_change"), ("modify", "state_change"),
     ("control", "state_change"), ("activate", "state_change"), ("book", "state_change"),
+    ("reserve", "state_change"), ("rent", "state_change"), ("charge", "state_change"),
     ("purchase", "state_change"), ("order", "state_change"), ("cancel", "state_change"),
     ("schedule", "state_change"), ("reset", "state_change"), ("revoke", "state_change"),
     ("create", "state_change"), ("install", "state_change"), ("deploy", "state_change"),
@@ -547,7 +548,13 @@ _TASK_VERBS = {
     "code_execution": ("run", "execute"),
     "messaging": ("message", "notify", "email", "send"),
     "state_change": ("set", "update", "change", "adjust", "modify", "edit", "book", "order", "unlock", "open",
-                     "create", "schedule", "cancel", "control", "reset", "install"),
+                     "create", "schedule", "cancel", "control", "reset", "install",
+                     # kept symmetric with the state-change verbs in _SENSITIVE_TOOLS:
+                     # an operator who says "make a reservation" / "purchase" has
+                     # authorised that action class, so it is not injection harm.
+                     # "reserv" is a stem so it matches both reserve and reservation;
+                     # we avoid short substrings like "rent" that hit common words.
+                     "reserv", "purchase"),
 }
 
 

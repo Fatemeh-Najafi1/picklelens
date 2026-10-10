@@ -194,6 +194,21 @@ in the untrusted content, so the attacker's target originates there; a fully
 faithful environment where the *legitimate* target also comes from an untrusted
 tool output would stress FPR further — the same known limit.)
 
+**Update (2026-10-10 external re-run, 134 pairs, recorded in
+[`bench/results/2026-10-10-agentaudit-external.md`](bench/results/2026-10-10-agentaudit-external.md)).**
+A fresh full run surfaced two more false-positive sources (a transient
+conditional injection mis-scored as a memory *sleeper*; an operator-authorised
+payment mis-scored as injection harm) — both now fixed with regression tests,
+taking InjecAgent **and** AgentDojo FPR to a clean **0%**. It also showed
+`reserve_hotel` was missing from the sensitive-action taxonomy entirely, so a
+hotel the attacker named was never checked; adding the `reserve`/`rent`/`charge`
+state-change verbs (and the `reserv` stem to the task-authorisation list, so
+"make a reservation" still reads as operator intent) lifted **travel recall
+58% → 73%** at **0% FPR**. The residual travel misses are the structural ceiling
+described above: a target the agent *computes* ("the most expensive hotel") or a
+payload hidden in a free-text content field — both of which the
+capability-restriction path sidesteps.
+
 ### The principled fix: capability restriction
 
 Taint is a *best-effort* signal for when nothing else is declared. The robust

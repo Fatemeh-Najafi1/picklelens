@@ -44,7 +44,7 @@ to have been hijacked by prompt injection or memory poisoning. It is evaluated
 against two external third-party benchmarks — InjecAgent (1,054 attack cases) and
 AgentDojo (four suites) — where it reaches **100% recall at 0% false positives on
 InjecAgent** (with a per-task tool allowlist; 70% on provenance/taint alone) and
-**90% recall at 0% false positives on AgentDojo**, and it caught a real live agent
+**93% recall at 0% false positives on AgentDojo**, and it caught a real live agent
 hijack in end-to-end testing. The scanner is still the more mature half; the
 sections below focus on it, with the agentaudit result summarised at the end.
 
@@ -135,7 +135,7 @@ with no LLM:
 |---|---|---|---|
 | InjecAgent (1,054 cases) | provenance/taint only | 70% (ds 100%, dh 38%) | **0%** |
 | InjecAgent (1,054 cases) | + capability restriction | **100%** | **0%** |
-| AgentDojo (134 pairs, 4 suites) | provenance + category | 90% | **0%** |
+| AgentDojo (134 pairs, 4 suites) | provenance + category | 93% | **0%** |
 
 The honest shape: taint catches data-stealing perfectly but only part of
 direct-harm (many harmful actions carry no data to trace), and a per-task tool
@@ -161,12 +161,12 @@ recall. Full record:
   data-exfiltration perfectly but only ~38% of direct-harm actions on its own
   (many carry no attacker value to trace — a structural limit), which a
   capability-restriction policy then lifts to 100%. The AgentDojo *travel* suite
-  (state-changing bookings) is its honest weak spot at ~58% recall. These are
+  (state-changing bookings) is its honest weak spot at ~73% recall. These are
   described plainly in [RESEARCH.md](RESEARCH.md) and the run record.
 
 ## Engineering practices
 
-- **97 passing tests**, CI on every push, MIT licensed.
+- **99 passing tests**, CI on every push, MIT licensed.
 - Every benchmark prints a provenance header (date, Python version, tool
   versions, corpus) and each real run is archived so numbers stay reproducible.
 - Honesty is a design constraint, not an afterthought: every benchmark states
