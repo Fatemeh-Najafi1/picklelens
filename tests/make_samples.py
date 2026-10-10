@@ -99,6 +99,14 @@ class _Connect:
         return (socket.socket, ())
 
 
+class _ExitDoS:
+    """Terminates the process on load - a denial-of-service pickle. Inert here:
+    unpickling is never performed by the scanner."""
+    def __reduce__(self):
+        import sys
+        return (sys.exit, (0,))
+
+
 # --- realistic (still inert) malware-behavior payloads ------------------
 # Each reproduces the calls + indicator strings of a malware class. The
 # reachable command is harmless, but the URLs/paths/markers are what a real
@@ -402,6 +410,7 @@ def build() -> list[dict]:
     _add("mal_nested.pkl", pickle.dumps(_Nested()), True, "nested")
     _add("mal_build.pkl", pickle.dumps(_BuildReduce()), True, "build")
     _add("mal_socket.pkl", pickle.dumps(_Connect()), True, "network")
+    _add("mal_exit.pkl", pickle.dumps(_ExitDoS()), True, "process_control")
     _add("oos_classsetstate.pkl", pickle.dumps(_ClassSideSetState()),
          True, "class_side", in_scope=False)
     _add("mal_stackglobal.pkl", _stack_global_payload(), True, "stack_global")

@@ -63,6 +63,13 @@
     "bytes": 28
   },
   {
+    "name": "mal_exit.pkl",
+    "malicious": true,
+    "family": "process_control",
+    "in_scope": true,
+    "bytes": 33
+  },
+  {
     "name": "oos_classsetstate.pkl",
     "malicious": true,
     "family": "class_side",

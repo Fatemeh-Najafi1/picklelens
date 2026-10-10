@@ -99,6 +99,20 @@ SINKS: tuple[Sink, ...] = (
     Sink("platform.popen", "process_execution", Severity.CRITICAL,
          "runs a shell command"),
 
+    # -- process termination / control (runs on load; denial of service) --
+    Sink("builtins.exit", "process_control", Severity.HIGH,
+         "terminates the process on load"),
+    Sink("builtins.quit", "process_control", Severity.HIGH,
+         "terminates the process on load"),
+    Sink("sys.exit", "process_control", Severity.HIGH,
+         "terminates the process on load"),
+    Sink("os._exit", "process_control", Severity.HIGH,
+         "terminates the process immediately on load"),
+    Sink("os.abort", "process_control", Severity.HIGH,
+         "aborts the process on load"),
+    Sink("os.kill", "process_control", Severity.HIGH,
+         "sends a signal to a process on load"),
+
     # -- interpreter / memory internals -----------------------------------
     Sink("ctypes.*", "interpreter_abuse", Severity.CRITICAL,
          "calls into native code or manipulates process memory"),

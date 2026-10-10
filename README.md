@@ -1,7 +1,7 @@
 # picklelens — an AI-security toolkit
 
 [![CI](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml/badge.svg)](https://github.com/Fatemeh-Najafi1/picklelens/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-93%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-94%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -110,11 +110,11 @@ Five-way, vs every public pickle/model scanner
 *generously* so the comparison is honest):
 
 ```
-picklelens   recall 22/22 (100%), FPR 0/11 (0%)
-modelhawk    recall 20/22 ( 91%), FPR 0/11 (0%)    # Pyhroff/ModelHawk
-picklescan   recall 19/22 ( 86%), FPR 0/11 (0%)    # Hugging Face
-fickling     recall 17/22 ( 77%), FPR 1/11 (9%), 5 parse errors   # Trail of Bits
-modelscan    recall 16/22 ( 73%), FPR 0/11 (0%)    # Protect AI
+picklelens   recall 23/23 (100%), FPR 0/11 (0%)
+modelhawk    recall 21/23 ( 91%), FPR 0/11 (0%)    # Pyhroff/ModelHawk
+picklescan   recall 20/23 ( 87%), FPR 0/11 (0%)    # Hugging Face
+fickling     recall 18/23 ( 78%), FPR 1/11 (9%), 5 parse errors   # Trail of Bits
+modelscan    recall 17/23 ( 74%), FPR 0/11 (0%)    # Protect AI
 ```
 
 picklelens is the **only tool at 100% recall with 0 false alarms.** What the
@@ -126,6 +126,28 @@ globals, and a Keras Lambda RCE. Fickling also **false-flags a legitimate
 `OrderedDict` state dict** and raised parse errors on 5 valid files. (ModelScan,
 Fickling, ModelHawk are optional — the benchmark skips any not installed;
 ModelHawk via `MODELHAWK_DIR=/path/to/ModelHawk`.)
+
+### Real-model validation
+
+The corpus above is hand-authored. [`bench/real_model_benchmark.py`](bench/)
+runs the same comparison on **real models from Hugging Face** (20 benign
+production models incl. distilbert and sentence-transformers; 10
+external-authored malicious test pickles) — see [bench/](bench/) for Colab /
+Kaggle instructions. The real-world precision result:
+
+```
+REAL benign models — false positives (lower is better)
+  picklelens   0/20 (0%)
+  picklescan   1/20 (5%)     # flags a benign canary
+  modelhawk    2/20 (10%)    # flags sentence-transformers/all-MiniLM-L6-v2 (a top-downloaded model)
+```
+
+picklelens was the **only scanner with zero false positives on real models** —
+its curated-sink / reachability design trades a little recall for precision the
+"anything unfamiliar is suspicious" scanners cannot match. The recall run also
+did its job: it surfaced a real gap (a pickle that calls `sys.exit` on load, a
+denial-of-service, was missed) that both competitors caught — now fixed with a
+`process_control` sink family and a regression sample.
 
 ### Usage
 
